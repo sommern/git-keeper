@@ -250,6 +250,16 @@ def update_assignment(class_name: str, upload_dir_path: str,
     :param response_timeout: seconds to wait for server response
     """
 
+    valid_items = ('base_code', 'email', 'tests')
+
+    for item in items:
+        if item not in valid_items:
+            error = '{} is not a valid update item\n'.format(item)
+            error += 'Valid items: '
+            for valid_item in valid_items:
+                error += valid_item + ' '
+            raise GkeepException(error)
+
     # expand any special path components, strip trailing slash
     upload_dir_path = os.path.abspath(upload_dir_path)
 
