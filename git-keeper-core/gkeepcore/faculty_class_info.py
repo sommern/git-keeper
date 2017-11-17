@@ -369,3 +369,13 @@ class FacultyClassInfo:
 
         student_info = self.info_dict[class_name]['students'][username]
         return student_info['last_first_username']
+
+    def average_student_submission_count(self, class_name: str, username: str) -> int:
+
+        total = 0
+
+        for assignment in self.assignment_list(class_name):
+            total += self.student_submission_count(class_name, assignment, username)
+
+
+        return total / len(self.student_assignments(class_name, username))
