@@ -7,10 +7,9 @@ from gkeepclient.client_configuration import config
 from gkeepclient.server_interface import server_interface
 from gkeepgui.main_window import MainWindow
 
-if __name__ == '__main__':
-
+def main():
     path = os.path.expanduser(
-        '~/git-keeper/tests/vagrant/faculty_gkeep_configs/faculty_one.cfg')
+        '~/.config/git-keeper/client.cfg')
     config.set_config_path(path)
     config.parse()
     server_interface.connect()
@@ -22,3 +21,6 @@ if __name__ == '__main__':
     main_application.show()
 
     sys.exit(app.exec_())
+
+if __name__ == '__main__':
+    main()
