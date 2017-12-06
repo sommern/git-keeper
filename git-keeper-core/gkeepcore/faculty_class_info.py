@@ -252,14 +252,14 @@ class FacultyClassInfo:
 
         :param class_name: name of a student
         :param username: username of a student
-        :return: an info dict of all the assignments for a student
+        :return: a list of all the assignments for a student
         """
 
         student_assignments = []
         for an_assignment in self.assignment_list(class_name):
-            student_assignment = self.info_dict[class_name]['assignments'][
-                an_assignment]['students_repos'][username]
-            if student_assignment is not None:
+            submission_count = self.info_dict[class_name]['assignments'][
+                an_assignment]['students_repos'][username]['submission_count']
+            if submission_count != 0:
                 student_assignments.append(an_assignment)
         return student_assignments
 
@@ -370,12 +370,18 @@ class FacultyClassInfo:
         student_info = self.info_dict[class_name]['students'][username]
         return student_info['last_first_username']
 
-    def average_student_submission_count(self, class_name: str, username: str) -> int:
+    def average_student_submission_count(self, class_name: str, username: str) -> float:
 
         total = 0
 
         for assignment in self.assignment_list(class_name):
             total += self.student_submission_count(class_name, assignment, username)
 
+        assignments_submitted = len(self.student_assignments(class_name, username))
 
-        return total / len(self.student_assignments(class_name, username))
+        average = 0
+
+        if assignments_submitted != 0:
+            average = total / assignments_submitted
+
+        return average

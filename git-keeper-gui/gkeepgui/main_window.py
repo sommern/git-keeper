@@ -1,15 +1,17 @@
+import json
 from json import load
 
 import os
 from PyQt5.QtCore import Qt, pyqtSlot, QModelIndex
-from PyQt5.QtGui import QBrush, qGreen, qRed
+from PyQt5.QtGui import QBrush, qGreen, qRed, QColor
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, \
     QPushButton, QTableWidgetItem, QTableWidget, QToolButton, QComboBox, \
-    QLabel, QAbstractItemView
+    QLabel, QAbstractItemView, QFileDialog
 
+from gkeepclient import fetch_submissions
 from gkeepclient.client_configuration import config
 from gkeepclient.server_interface import server_interface
-
+from gkeepgui.global_info import global_info
 
 
 class MainWindow(QMainWindow):
@@ -26,12 +28,11 @@ class MainWindow(QMainWindow):
     def show_student_window(self, class_name: str, username: str):
         self.setCentralWidget(StudentWindow(class_name, username))
 
-    def show_submission_window(self, class_name: str, assignment: str):
-        self.setCentralWidget(SubmissionWindow(class_name, assignment))
+    def show_assignment_window(self, class_name: str, assignment: str):
+        self.setCentralWidget(AssignmentWindow(class_name, assignment))
 
 
 class ClassWindow(QWidget):
-
 
     def __init__(self):
 
@@ -40,33 +41,52 @@ class ClassWindow(QWidget):
         self.setWindowTitle('Classes')
 
         self.layout = QVBoxLayout()
+        self.toolbarLayout = QHBoxLayout()
         self.tableLayout = QHBoxLayout()
         self.classDetails = QVBoxLayout()
         self.classMenu = QComboBox(self)
+
+        self.refreshButton = QPushButton('Refresh', self)
+        self.refreshButton.setFixedSize(80, 30)
+        self.refreshButton.setCheckable(True)
+
+        self.fetchButton = QPushButton('Fetch', self)
+        self.fetchButton.setFixedSize(80, 30)
+        self.fetchButton.setCheckable(True)
+
         self.studentText = QLabel(self)
         self.assignmentText = QLabel(self)
         self.studentTable = QTableWidget(self)
         self.assignmentTable = QTableWidget(self)
 
-        self.layout.addWidget(self.classMenu)
+        self.toolbarLayout.addWidget(self.classMenu, Qt.AlignLeft)
+        self.toolbarLayout.addWidget(self.refreshButton, Qt.AlignRight)
+        self.toolbarLayout.addWidget(self.fetchButton,Qt.AlignRight)
+        self.toolbarLayout.insertStretch(1, 10)
+
+        self.layout.addLayout(self.toolbarLayout)
         self.layout.addLayout(self.classDetails)
         self.layout.addLayout(self.tableLayout)
 
         self.setLayout(self.layout)
 
-        self.infoDict = server_interface.get_info()
+        self.infoDict = global_info.info
+        self.refreshButton.clicked.connect(self.refresh_button_clicked)
+        self.fetchButton.clicked.connect(self.fetch_button_clicked)
+
         self.drop_down_class_menu()
 
     def class_details(self, class_name):
 
         self.studentText.destroy()
         self.assignmentText.destroy()
-        studentCount = self.infoDict.student_count(class_name)
-        self.studentText.setText('Number of Students: {0}'.format(studentCount))
-        assignmentCount = self.infoDict.assignment_count(class_name)
-        self.assignmentText.setText('Number of Assignments: {0}'.format(assignmentCount))
+        student_count = self.infoDict.student_count(class_name)
+        self.studentText.setText('Number of Students: {0}'.format(student_count))
+        assignment_count = self.infoDict.assignment_count(class_name)
+        self.assignmentText.setText('Number of Assignments: {0}'.format(assignment_count))
         self.classDetails.addWidget(self.studentText)
         self.classDetails.addWidget(self.assignmentText)
+
 
     def drop_down_class_menu(self):
         self.classMenu.setFixedSize(100, 30)
@@ -77,6 +97,46 @@ class ClassWindow(QWidget):
 
         self.class_changed(self.classMenu.itemText(0))
         self.classMenu.currentTextChanged.connect(self.class_changed)
+
+    @pyqtSlot(bool)
+    def refresh_button_clicked(self, checked: bool):
+        if checked:
+            self.refreshButton.setChecked(False)
+            global_info.refresh()
+            self.infoDict = global_info.info
+            self.student_table(self.classMenu.currentText())
+            self.assignment_table(self.classMenu.currentText())
+
+    @pyqtSlot(bool)
+    def fetch_button_clicked(self, checked: bool):
+        if checked:
+            self.fetchButton.setChecked(False)
+            selected_items = self.assignmentTable.selectedItems()
+
+            if len(selected_items) is not None:
+                class_name = self.classMenu.currentText()
+                assignment = selected_items[0].text()
+                if config.submissions_path is None:
+                    explorer = QFileDialog(self, Qt.Popup)
+                    submissions_path = explorer.getExistingDirectory()
+                else:
+                    submissions_path = os.path.join(config.submissions_path,
+                                            class_name)
+
+                '''json_path = os.path.expanduser('~/submissions/submissions.json')
+                if os.path.isfile(json_path):
+                    with open(json_path, 'r') as f:
+                        paths = json.load(f)
+                        paths[assignment] = submissions_path
+                    with open(json_path, 'w') as f:
+                        json.dump(paths, f)
+                else:
+                    with open(json_path, 'w') as f:
+                        paths = {assignment: submissions_path}
+                        json.dump(paths, f)'''
+
+                fetch_submissions.fetch_submissions(class_name, assignment, submissions_path)
+
 
     @pyqtSlot(str)
     def class_changed(self, class_name):
@@ -117,10 +177,12 @@ class ClassWindow(QWidget):
 
         for row in range(self.studentTable.rowCount()):
             for column in range(self.studentTable.columnCount()):
-                self.studentTable.item(row, column).setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+                cell = self.studentTable.item(row, column)
+                cell.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+                cell.setSelected(False)
 
         self.tableLayout.addWidget(self.studentTable)
-        self.studentTable.doubleClicked.connect(self.student_clicked)
+        self.studentTable.doubleClicked.connect(self.student_double_clicked)
 
     def assignment_table(self, class_name: str):
         self.assignmentTable.destroy()
@@ -150,32 +212,50 @@ class ClassWindow(QWidget):
 
         self.tableLayout.addWidget(self.assignmentTable)
         self.assignmentTable.itemSelectionChanged.connect(self.show_submissions)
+        self.assignmentTable.doubleClicked.connect(self.assignment_double_clicked)
 
     @pyqtSlot(QModelIndex)
-    def student_clicked(self, index: QModelIndex):
+    def student_double_clicked(self, index: QModelIndex):
 
-        selectedCells = self.studentTable.selectedItems()
-        parentWidget = self.parentWidget()
+        selected_cells = self.studentTable.selectedItems()
+        parent_widget = self.parentWidget()
         self.destroy()
-        parentWidget.show_student_window(self.classMenu.currentText(), selectedCells[2].text())
+        parent_widget.show_student_window(self.classMenu.currentText(), selected_cells[2].text())
+
+    @pyqtSlot(QModelIndex)
+    def assignment_double_clicked(self, index: QModelIndex):
+        
+        selected_cells = self.assignmentTable.selectedItems()
+        parent_widget = self.parentWidget()
+        self.destroy()
+        parent_widget.show_assignment_window(self.classMenu.currentText(), selected_cells[0].text())
 
     @pyqtSlot()
     def show_submissions(self):
+
+        for row in range(self.studentTable.rowCount()):
+            for col in range(self.studentTable.columnCount()):
+                cell = self.studentTable.item(row, col)
+                cell.setBackground(QBrush(Qt.white))
+                cell.setSelected(False)
+
         if len(self.assignmentTable.selectedItems()) != 0:
-            redBrush = QBrush(Qt.red)
-            greenBrush = QBrush(Qt.green)
-            selectedCells = self.assignmentTable.selectedItems()
+            green = QColor(208, 240, 192)
+            red = QColor(255, 192, 203)
+            red_brush = QBrush(red)
+            green_brush = QBrush(green)
+            selected_cells = self.assignmentTable.selectedItems()
             class_name = self.classMenu.currentText()
-            assignment = selectedCells[0].text()
+            assignment = selected_cells[0].text()
             for row in range(self.studentTable.rowCount()):
                 username = self.studentTable.item(row, 2).text()
                 submission = self.infoDict.student_submission_count(class_name, assignment, username)
                 for col in range(self.studentTable.columnCount()):
-                    currentCell = self.studentTable.item(row, col)
+                    current_cell = self.studentTable.item(row, col)
                     if submission == 0:
-                        currentCell.setBackground(redBrush)
+                        current_cell.setBackground(red_brush)
                     else:
-                        currentCell.setBackground(greenBrush)
+                        current_cell.setBackground(green_brush)
 
 
 class StudentWindow(QWidget):
@@ -201,9 +281,8 @@ class StudentWindow(QWidget):
         self.layout.addLayout(self.studentDetails)
         self.setLayout(self.layout)
 
-        self.infoDict = server_interface.get_info()
+        self.infoDict = global_info.info
         self.student_details()
-
 
     def student_details(self):
         first = self.infoDict.student_first_name(self.class_name, self.username)
@@ -229,38 +308,38 @@ class StudentWindow(QWidget):
             parent_widget.show_class_window()
 
 
-class SubmissionWindow(QWidget):
+class AssignmentWindow(QWidget):
 
-    def __init__(self, class_name, assignment):
+    def __init__(self, class_name: str, assignment: str):
 
         super().__init__()
-        self.setWindowTitle('Submissions')
-        self.layout = QVBoxLayout()
-        self.buttonLayout = QHBoxLayout()
         self.class_name = class_name
         self.assignment = assignment
-
+        self.setWindowTitle("Assignment")
+        self.infoDict = global_info.info
+        self.layout = QVBoxLayout()
         self.backButton = QToolButton(self)
         self.backButton.setArrowType(Qt.LeftArrow)
-        self.backButton.setFixedSize(30, 30)
         self.backButton.setCheckable(True)
+        self.backButton.setFixedSize(30, 30)
+        self.layout.addWidget(self.backButton, alignment=Qt.AlignLeft)
 
-        self.submissionTable = QTableWidget(self.infoDict.student_count(self.class_name), 4)
-
-        self.buttonLayout.addWidget(self.backButton, alignment=Qt.AlignLeft)
-        self.layout.addLayout(self.buttonLayout)
+        self.submissionTable = QTableWidget(self.infoDict.student_count(self.class_name), 4, self)
         self.layout.addWidget(self.submissionTable)
+
         self.setLayout(self.layout)
+        self.submission_table()
 
-        self.infoDict = server_interface.get_info()
+    def submission_table(self):
 
-        self.create_table_submission()
-
-    def create_table_submission(self):
-        self.submissionTable.setHorizontalHeaderItem(0, QTableWidgetItem('Student'))
-        self.submissionTable.setHorizontalHeaderItem(1, QTableWidgetItem('Last Submission Time'))
-        self.submissionTable.setHorizontalHeaderItem(2, QTableWidgetItem('Submission Count'))
-        self.submissionTable.setHorizontalHeaderItem(3, QTableWidgetItem('Unfetched'))
+        self.submissionTable.setHorizontalHeaderItem(0, QTableWidgetItem(
+            'Student'))
+        self.submissionTable.setHorizontalHeaderItem(1, QTableWidgetItem(
+            'Last Submission Time'))
+        self.submissionTable.setHorizontalHeaderItem(2, QTableWidgetItem(
+            'Submission Count'))
+        self.submissionTable.setHorizontalHeaderItem(3, QTableWidgetItem(
+            'Unfetched'))
 
         row = 0
 
@@ -284,7 +363,6 @@ class SubmissionWindow(QWidget):
     @pyqtSlot(bool)
     def back_button_clicked(self, checked: bool):
         if checked:
-            parentWidget = self.parentWidget()
-            class_name = self.class_name
+            parent_widget = self.parentWidget()
             self.destroy()
-            parentWidget.show_assignment_window(class_name)
+            parent_widget.show_class_window()
