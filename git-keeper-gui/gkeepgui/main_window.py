@@ -10,7 +10,9 @@ from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, \
 
 from gkeepclient import fetch_submissions
 from gkeepclient.client_configuration import config
+from gkeepclient.fetch_submissions import FetchedHashCache
 from gkeepclient.server_interface import server_interface
+from gkeepcore.git_commands import git_head_hash
 from gkeepgui.global_info import global_info
 
 
@@ -106,6 +108,7 @@ class ClassWindow(QWidget):
             self.infoDict = global_info.info
             self.student_table(self.classMenu.currentText())
             self.assignment_table(self.classMenu.currentText())
+            self.show_submissions()
 
     @pyqtSlot(bool)
     def fetch_button_clicked(self, checked: bool):
@@ -116,26 +119,33 @@ class ClassWindow(QWidget):
             if len(selected_items) is not None:
                 class_name = self.classMenu.currentText()
                 assignment = selected_items[0].text()
-                if config.submissions_path is None:
-                    explorer = QFileDialog(self, Qt.Popup)
-                    submissions_path = explorer.getExistingDirectory()
-                else:
-                    submissions_path = os.path.join(config.submissions_path,
-                                            class_name)
+                json_path = os.path.expanduser('~/.config/submissions_path.json')
 
-                '''json_path = os.path.expanduser('~/submissions/submissions.json')
-                if os.path.isfile(json_path):
+                if not os.path.isfile(json_path):
+                    with open(json_path, 'w'):
+                        pass
+
+                if os.path.getsize(json_path) > 0:
                     with open(json_path, 'r') as f:
                         paths = json.load(f)
-                        paths[assignment] = submissions_path
-                    with open(json_path, 'w') as f:
-                        json.dump(paths, f)
                 else:
-                    with open(json_path, 'w') as f:
-                        paths = {assignment: submissions_path}
-                        json.dump(paths, f)'''
+                    paths = {}
+
+                if assignment in paths.keys():
+                    submissions_path = paths[assignment]
+                elif config.submissions_path is not None:
+                    submissions_path = config.submissions_path
+                    paths[assignment] = submissions_path
+                else:
+                    explorer = QFileDialog(self, Qt.Popup)
+                    submissions_path = explorer.getExistingDirectory()
+                    paths[assignment] = submissions_path
+
+                with open(json_path, 'w') as f:
+                    json.dump(paths, f)
 
                 fetch_submissions.fetch_submissions(class_name, assignment, submissions_path)
+                self.show_submissions()
 
 
     @pyqtSlot(str)
@@ -147,6 +157,7 @@ class ClassWindow(QWidget):
     def student_table(self, class_name: str):
 
         self.studentTable.destroy()
+        self.studentTable.setSortingEnabled(False)
         self.studentTable.setRowCount(self.infoDict.student_count(class_name))
         self.studentTable.setColumnCount(4)
         self.studentTable.setHorizontalHeaderItem(0, QTableWidgetItem(
@@ -170,7 +181,6 @@ class ClassWindow(QWidget):
 
             row += 1
 
-        self.studentTable.setSortingEnabled(True)
         self.studentTable.setCornerButtonEnabled(False)
         self.studentTable.resizeColumnsToContents()
         self.studentTable.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -181,11 +191,14 @@ class ClassWindow(QWidget):
                 cell.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
                 cell.setSelected(False)
 
+        self.studentTable.setSortingEnabled(True)
+        self.studentTable.sortByColumn(0, Qt.DescendingOrder)
         self.tableLayout.addWidget(self.studentTable)
         self.studentTable.doubleClicked.connect(self.student_double_clicked)
 
     def assignment_table(self, class_name: str):
         self.assignmentTable.destroy()
+        self.assignmentTable.setSortingEnabled(False)
         self.assignmentTable.setRowCount(self.infoDict.assignment_count(class_name))
         self.assignmentTable.setColumnCount(2)
         self.assignmentTable.setHorizontalHeaderItem(0, QTableWidgetItem('Assignment Name'))
@@ -201,7 +214,6 @@ class ClassWindow(QWidget):
 
             row += 1
 
-        self.assignmentTable.setSortingEnabled(True)
         self.assignmentTable.setCornerButtonEnabled(False)
         self.assignmentTable.resizeColumnsToContents()
         self.assignmentTable.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -210,6 +222,8 @@ class ClassWindow(QWidget):
             for col in range (self.assignmentTable.columnCount()):
                 self.assignmentTable.item(row, col).setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
+        self.assignmentTable.setSortingEnabled(True)
+        self.assignmentTable.sortByColumn(0, Qt.DescendingOrder)
         self.tableLayout.addWidget(self.assignmentTable)
         self.assignmentTable.itemSelectionChanged.connect(self.show_submissions)
         self.assignmentTable.doubleClicked.connect(self.assignment_double_clicked)
@@ -242,18 +256,42 @@ class ClassWindow(QWidget):
         if len(self.assignmentTable.selectedItems()) != 0:
             green = QColor(208, 240, 192)
             red = QColor(255, 192, 203)
+            blue = QColor(240, 248, 255)
             red_brush = QBrush(red)
             green_brush = QBrush(green)
+            blue_brush = QBrush(blue)
             selected_cells = self.assignmentTable.selectedItems()
             class_name = self.classMenu.currentText()
             assignment = selected_cells[0].text()
+
+
             for row in range(self.studentTable.rowCount()):
                 username = self.studentTable.item(row, 2).text()
                 submission = self.infoDict.student_submission_count(class_name, assignment, username)
                 for col in range(self.studentTable.columnCount()):
                     current_cell = self.studentTable.item(row, col)
+                    json_path = os.path.expanduser('~/.config/submissions_path.json')
+
+                    if os.path.isfile(json_path):
+                        with open(json_path, 'r') as f:
+                            paths = json.load(f)
+
+                        if assignment in paths.keys():
+                            student_submission_path = os.path.join(paths[assignment], assignment, 'submissions', self.infoDict.student_last_first_username(class_name, username))
+                            print(student_submission_path)
+                            cache = FetchedHashCache(student_submission_path)
+                            if cache.is_cached(student_submission_path):
+                                local_hash = cache.get_hash(student_submission_path)
+                            else:
+                                local_hash = git_head_hash(student_submission_path)
+                                cache.set_hash(student_submission_path,local_hash)
+
+                    server_hash = self.infoDict.student_assignment_hash(class_name, assignment, username)
+
                     if submission == 0:
                         current_cell.setBackground(red_brush)
+                    elif local_hash != server_hash:
+                        current_cell.setBackground(blue_brush)
                     else:
                         current_cell.setBackground(green_brush)
 
