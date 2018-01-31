@@ -76,7 +76,20 @@ class ClassWindow(QWidget):
         self.refreshButton.clicked.connect(self.refresh_button_clicked)
         self.fetchButton.clicked.connect(self.fetch_button_clicked)
 
+        self.create_json()
         self.drop_down_class_menu()
+
+    def create_json(self):
+        json_path = os.path.expanduser('~/.config/git-keeper/submissions_path.json')
+
+        if not os.path.isfile(json_path):
+            with open(json_path, 'w'):
+                pass
+
+        if os.path.getsize(json_path) == 0:
+            paths = {}
+            with open(json_path, 'w') as f:
+                json.dump(paths, f)
 
     def class_details(self, class_name):
 
@@ -119,27 +132,31 @@ class ClassWindow(QWidget):
             if len(selected_items) is not None:
                 class_name = self.classMenu.currentText()
                 assignment = selected_items[0].text()
-                json_path = os.path.expanduser('~/.config/submissions_path.json')
+                json_path = os.path.expanduser('~/.config/git-keeper/submissions_path.json')
 
-                if not os.path.isfile(json_path):
-                    with open(json_path, 'w'):
-                        pass
+                with open(json_path, 'r') as f:
+                    paths = json.load(f)
 
-                if os.path.getsize(json_path) > 0:
-                    with open(json_path, 'r') as f:
-                        paths = json.load(f)
+                if class_name not in paths.keys():
+                    if config.submissions_path is not None:
+                        submissions_path = config.submissions_path
+                        paths[class_name] = {}
+                        paths[class_name][assignment] = submissions_path
+                    else:
+                        explorer = QFileDialog(self, Qt.Popup)
+                        submissions_path = explorer.getExistingDirectory()
+                        paths[class_name] = {}
+                        paths[class_name][assignment] = submissions_path
                 else:
-                    paths = {}
-
-                if assignment in paths.keys():
-                    submissions_path = paths[assignment]
-                elif config.submissions_path is not None:
-                    submissions_path = config.submissions_path
-                    paths[assignment] = submissions_path
-                else:
-                    explorer = QFileDialog(self, Qt.Popup)
-                    submissions_path = explorer.getExistingDirectory()
-                    paths[assignment] = submissions_path
+                    if assignment in paths[class_name].keys():
+                        submissions_path = paths[class_name][assignment]
+                    elif config.submissions_path is not None:
+                        submissions_path = config.submissions_path
+                        paths[class_name][assignment] = submissions_path
+                    else:
+                        explorer = QFileDialog(self, Qt.Popup)
+                        submissions_path = explorer.getExistingDirectory()
+                        paths[class_name][assignment] = submissions_path
 
                 with open(json_path, 'w') as f:
                     json.dump(paths, f)
@@ -264,21 +281,21 @@ class ClassWindow(QWidget):
             class_name = self.classMenu.currentText()
             assignment = selected_cells[0].text()
 
-
             for row in range(self.studentTable.rowCount()):
                 username = self.studentTable.item(row, 2).text()
                 submission = self.infoDict.student_submission_count(class_name, assignment, username)
                 for col in range(self.studentTable.columnCount()):
                     current_cell = self.studentTable.item(row, col)
-                    json_path = os.path.expanduser('~/.config/submissions_path.json')
+                    json_path = os.path.expanduser('~/.config/git-keeper/submissions_path.json')
+                    local_hash = 0
+                    server_hash = self.infoDict.student_assignment_hash(class_name, assignment, username)
 
                     if os.path.isfile(json_path):
                         with open(json_path, 'r') as f:
                             paths = json.load(f)
 
-                        if assignment in paths.keys():
-                            student_submission_path = os.path.join(paths[assignment], assignment, 'submissions', self.infoDict.student_last_first_username(class_name, username))
-                            print(student_submission_path)
+                        if assignment in paths[class_name].keys():
+                            student_submission_path = os.path.join(paths[class_name][assignment], assignment, 'submissions', self.infoDict.student_last_first_username(class_name, username))
                             cache = FetchedHashCache(student_submission_path)
                             if cache.is_cached(student_submission_path):
                                 local_hash = cache.get_hash(student_submission_path)
@@ -286,11 +303,9 @@ class ClassWindow(QWidget):
                                 local_hash = git_head_hash(student_submission_path)
                                 cache.set_hash(student_submission_path,local_hash)
 
-                    server_hash = self.infoDict.student_assignment_hash(class_name, assignment, username)
-
                     if submission == 0:
                         current_cell.setBackground(red_brush)
-                    elif local_hash != server_hash:
+                    elif local_hash == 0 or local_hash != server_hash:
                         current_cell.setBackground(blue_brush)
                     else:
                         current_cell.setBackground(green_brush)
