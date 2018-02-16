@@ -11,8 +11,8 @@ from gkeepgui.main_window import MainWindow
 def main():
 
     app = QApplication(sys.argv)
-
     main_application = MainWindow()
+
     main_application.show()
 
     sys.exit(app.exec_())
