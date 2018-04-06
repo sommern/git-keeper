@@ -101,7 +101,7 @@ class FacultyClassInfo:
 
     def student_list(self, class_name: str) -> list:
         """
-        Get the list of the students in a class.
+        Get the list of the usernames of all the students in a class.
 
         :param class_name: name of a class
         :return: list of students in the class
