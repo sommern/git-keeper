@@ -141,7 +141,7 @@ class FacultyClassInfo:
         assignment_info = self.info_dict[class_name]['assignments'][assignment]
         return assignment_info['published']
 
-    def reports_hash(self, class_name: str, assignment: str) -> str:
+    def reports_hash(self, class_name: str, assignment: str):
         """
         Get the reports hash of an assignment.
 
@@ -151,9 +151,13 @@ class FacultyClassInfo:
         """
 
         assignment_info = self.info_dict[class_name]['assignments'][assignment]
-        return assignment_info['reports_repo']['hash']
 
-    def reports_path(self, class_name: str, assignment: str) -> str:
+        if assignment_info['reports_repo'] is not None:
+            return assignment_info['reports_repo']['hash']
+        else:
+            return None
+
+    def reports_path(self, class_name: str, assignment: str):
         """
         Get the reports path of an assignment.
 
@@ -163,7 +167,10 @@ class FacultyClassInfo:
         """
 
         assignment_info = self.info_dict[class_name]['assignments'][assignment]
-        return assignment_info['reports_repo']['path']
+        if assignment_info['reports_repo'] is not None:
+            return assignment_info['reports_repo']['path']
+        else:
+            return None
 
     def student_submitted_count(self, class_name: str, assignment: str) -> int:
         """
@@ -257,14 +264,15 @@ class FacultyClassInfo:
 
         student_assignments = []
         for an_assignment in self.assignment_list(class_name):
-            submission_count = self.info_dict[class_name]['assignments'][
+            if self.is_published(class_name, an_assignment):
+                submission_count = self.info_dict[class_name]['assignments'][
                 an_assignment]['students_repos'][username]['submission_count']
-            if submission_count != 0:
-                student_assignments.append(an_assignment)
+                if submission_count != 0:
+                    student_assignments.append(an_assignment)
         return student_assignments
 
     def student_assignment_hash(self, class_name: str, assignment: str,
-                                username: str) -> str:
+                                username: str):
         """
         Get the hash of a student's assignment.
 
@@ -275,10 +283,13 @@ class FacultyClassInfo:
         """
 
         assignment_info = self.info_dict[class_name]['assignments'][assignment]
-        return assignment_info['students_repos'][username]['hash']
+        if assignment_info['students_repos'] is not None:
+            return assignment_info['students_repos'][username]['hash']
+        else:
+            return None
 
     def student_assignment_path(self, class_name: str, assignment: str,
-                                username: str) -> str:
+                                username: str):
         """
         Get the path of a student's assignment.
 
@@ -289,10 +300,14 @@ class FacultyClassInfo:
         """
 
         assignment_info = self.info_dict[class_name]['assignments'][assignment]
-        return assignment_info['students_repos'][username]['path']
+
+        if assignment_info['students_repos'] is not None:
+            return assignment_info['students_repos'][username]['path']
+        else:
+            return None
 
     def student_submission_count(self, class_name: str, assignment: str,
-                                 username: str) -> int:
+                                 username: str):
         """
         Get the submission count of a student for an assignment.
 
@@ -303,7 +318,10 @@ class FacultyClassInfo:
         """
 
         assignment_info = self.info_dict[class_name]['assignments'][assignment]
-        return assignment_info['students_repos'][username]['submission_count']
+        if assignment_info['students_repos'] is not None:
+            return assignment_info['students_repos'][username]['submission_count']
+        else:
+            return None
 
     def student_submission_time(self, class_name: str, assignment: str,
                                 username: str):
@@ -317,7 +335,10 @@ class FacultyClassInfo:
         """
 
         assignment_info = self.info_dict[class_name]['assignments'][assignment]
-        return assignment_info['students_repos'][username]['time']
+        if assignment_info['students_repos'] is not None:
+            return assignment_info['students_repos'][username]['time']
+        else:
+            return None
 
     def submission_time_string(self, class_name: str, assignment: str,
                                username: str,
@@ -373,9 +394,9 @@ class FacultyClassInfo:
     def average_student_submission_count(self, class_name: str, username: str) -> float:
 
         total = 0
-
         for assignment in self.assignment_list(class_name):
-            total += self.student_submission_count(class_name, assignment, username)
+            if self.is_published(class_name, assignment):
+                total += self.student_submission_count(class_name, assignment, username)
 
         assignments_submitted = len(self.student_assignments(class_name, username))
 

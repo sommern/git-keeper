@@ -6,7 +6,6 @@ from gkeepclient.server_interface import ServerInterfaceError
 from gkeepcore.git_commands import git_head_hash
 from gkeepgui.global_info import global_info
 from gkeepgui.gui_configuration import gui_config
-from gkeepgui.gui_exception import GuiException
 
 
 class FacultyClass:
@@ -66,9 +65,8 @@ class FacultyClass:
 
         return self._assignment_list
 
-    def print_info(self):
-        print('Class name:', self.name)
-        print()
+    def __repr__(self):
+        return self.name
 
 
 class Student:
@@ -129,9 +127,8 @@ class Student:
 
         return self._submission_list
 
-    def _print_info(self):
-        print('Username:', self.username)
-        print()
+    def __repr__(self):
+        return self.username
 
 
 class Assignment:
@@ -171,11 +168,13 @@ class Assignment:
         self.reports_path = self._info.reports_path(*class_and_assignment)
         self.students_submitted_count = \
             self._info.student_submitted_count(*class_and_assignment)
-        self.fetched_path = ''
         self._submission_list = None
         self.students_submitted_list = None
         self.no_submission_list = None
-        self.update_submissions()
+        self.fetched_path = self.get_path_from_json()
+        if self.fetched_path is not None:
+            self.set_fetched_path(self.fetched_path)
+        # self.update_submissions()
 
     def get_submission_list(self) -> list:
         """
@@ -191,20 +190,20 @@ class Assignment:
 
         return self._submission_list
 
-    def update_submissions(self):
-        """
-        Update the students_submitted_list and the no_submission_list.
-
-        :return: None
-        """
-        self.students_submitted_list = []
-        self.no_submission_list = []
-
-        for submission in self.get_submission_list():
-            if submission.submission_count > 0:
-                self.students_submitted_list.append(submission)
-            else:
-                self.no_submission_list.append(submission)
+    # def update_submissions(self):
+    #     """
+    #     Update the students_submitted_list and the no_submission_list.
+    #
+    #     :return: None
+    #     """
+    #     self.students_submitted_list = []
+    #     self.no_submission_list = []
+    #
+    #     for submission in self.get_submission_list():
+    #         if submission.submission_count > 0:
+    #             self.students_submitted_list.append(submission)
+    #         else:
+    #             self.no_submission_list.append(submission)
 
     def get_path_from_json(self):
         with open(gui_config.json_path, 'r') as f:
@@ -224,7 +223,8 @@ class Assignment:
         :param path: path of fetched submissions
         :return: None
         """
-        self.fetched_path = path
+        self.fetched_path = os.path.join(path, self.name)
+
         for submission in self.get_submission_list():
             submission.set_fetched_path()
 
@@ -241,9 +241,8 @@ class Assignment:
 
         return fetched_list
 
-    def _print_info(self):
-        print('Assignment', self.name)
-        print()
+    def __repr__(self):
+        return self.name
 
 
 class Submission:
@@ -284,16 +283,16 @@ class Submission:
             self._info.student_submission_count(*class_assignment_username)
         self.time = \
             self._info.submission_time_string(*class_assignment_username)
-        self.fetched_path = ''
+        self.fetched_path = None
         self.set_fetched_path()
 
     def set_fetched_path(self):
-        if self.assignment.fetched_path != '':
+        if self.assignment.fetched_path is not None:
             self.fetched_path = \
-                os.path.join(self.assignment.fetched_path, self.assignment.name, 'submissions',
+                os.path.join(self.assignment.fetched_path, 'submissions',
                              self.student.last_first_username)
         else:
-            self.fetched_path = ''
+            self.fetched_path = None
 
     def is_fetched(self) -> bool:
         """
@@ -301,7 +300,7 @@ class Submission:
 
         :return: True if fetched, False otherwise.
         """
-        if self.fetched_path == '':
+        if self.fetched_path is None:
             is_fetched = False
         else:
             local_hash = None
@@ -320,6 +319,5 @@ class Submission:
 
         return is_fetched
 
-    def _print_info(self):
-        print('Fetched submission by:', self.student.username)
-        print()
+    def __repr__(self):
+        return self.student.username

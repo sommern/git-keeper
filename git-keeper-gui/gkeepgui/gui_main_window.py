@@ -1,13 +1,15 @@
-import sys
+
 from PyQt5.QtCore import Qt, pyqtSlot
 from PyQt5.QtGui import QColor, QBrush
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, \
     QComboBox, QPushButton, QLabel, QTableWidget, QMessageBox, \
-    QAbstractItemView, QTableWidgetItem, QToolButton, QFileDialog, QApplication
+    QAbstractItemView, QTableWidgetItem, QToolButton, QFileDialog
 
 from gkeepclient.client_configuration import config
 from gkeepclient.server_interface import ServerInterfaceError
 from gkeepgui.gui_configuration import gui_config
+#from gkeepgui.mock_server_interface import ServerInterfaceError
+
 from gkeepgui.window_info import ClassWindowInfo, AssignmentTable, \
     StudentWindowInfo, AssignmentWindowInfo
 
@@ -111,6 +113,7 @@ class ClassWindow(QWidget):
             self.refresh_button.setChecked(False)
             try:
                 self.window_info.refresh()
+                self.show_submissions_table()
             except ServerInterfaceError as e:
                 self.close()
                 self.parentWidget().network_error_message(e)
@@ -120,9 +123,10 @@ class ClassWindow(QWidget):
 
         if checked:
             self.fetch_button.setChecked(False)
-            assignment = self.window_info.current_assignment_table.current_assignment.name
+            assignment = self.window_info.current_assignment_table.current_assignment
+
             if assignment is not None:
-                path = self.window_info.current_assignment_table.current_assignment.get_path_from_json()
+                path = assignment.get_path_from_json()
 
                 if path is None:
                     path = config.submissions_path
@@ -130,9 +134,11 @@ class ClassWindow(QWidget):
                     if path is None:
                         file_dialog = QFileDialog(self, Qt.Popup)
                         path = file_dialog.getExistingDirectory()
+                        print(path)
 
                 if path is not None:
-                    self.window_info.set_submissions_path(assignment, path)
+                    self.window_info.set_submissions_path(assignment.name, path)
+
             else:
                 for assignment in self.window_info.current_class.get_assignment_list():
                     path = assignment.get_path_from_json()
@@ -180,8 +186,10 @@ class ClassWindow(QWidget):
         self.description_text.setText(self.window_info.set_description())
 
     def show_assignments_table(self):
+        self.assignments_table.destroy()
+        self.table_layout.removeWidget(self.assignments_table)
+        self.assignments_table = QTableWidget()
         info = self.window_info.current_assignment_table
-        # self.assignments_table.setSortingEnabled(False)
         self.assignments_table.setRowCount(info.row_count)
         self.assignments_table.setColumnCount(info.col_count)
         index = 0
@@ -209,13 +217,18 @@ class ClassWindow(QWidget):
             for col in range(self.assignments_table.columnCount()):
                 self.assignments_table.item(row, col).setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
-        self.assignments_table.setSortingEnabled(True)
-        self.assignments_table.sortByColumn(0, Qt.AscendingOrder)
+        # self.assignments_table.setSortingEnabled(True)
+        # self.assignments_table.sortByColumn(0, Qt.AscendingOrder)
+        self.assignments_table.horizontalHeader().sectionClicked.connect(self.sort_assignments_table)
         self.table_layout.addWidget(self.assignments_table)
         self.assignments_table.itemSelectionChanged.connect(self.assignments_table_selection_changed)
+        self.assignments_table.selectRow(0)
         self.assignments_table.doubleClicked.connect(self.assignments_table_double_clicked)
 
     def show_submissions_table(self):
+        self.submissions_table.destroy()
+        self.table_layout.removeWidget(self.submissions_table)
+        self.submissions_table = QTableWidget()
         info = self.window_info.current_submission_table
         self.table_layout.addWidget(self.submissions_table)
 
@@ -239,8 +252,8 @@ class ClassWindow(QWidget):
                 col_index = 0
                 row_index += 1
 
-            self.submissions_table.setSortingEnabled(True)
-            self.submissions_table.sortByColumn(0, Qt.AscendingOrder)
+            # self.submissions_table.setSortingEnabled(True)
+            # self.submissions_table.sortByColumn(0, Qt.AscendingOrder)
             self.submissions_table.setCornerButtonEnabled(False)
             self.submissions_table.resizeColumnsToContents()
             self.submissions_table.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -249,7 +262,8 @@ class ClassWindow(QWidget):
                 for col in range(self.submissions_table.columnCount()):
                     self.submissions_table.item(row, col).setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
-            self.submissions_table.horizontalHeader().sectionClicked.connect(self.sort)
+            # self.submissions_table.horizontalHeader().setSortIndicatorShown(True)
+            self.submissions_table.horizontalHeader().sectionClicked.connect(self.sort_submissions_table)
 
             self.show_submissions_state()
 
@@ -259,8 +273,14 @@ class ClassWindow(QWidget):
             self.submissions_table.hide()
 
     @pyqtSlot(int)
-    def sort(self, col: int):
-        self.show_submissions_state()
+    def sort_submissions_table(self, col: int):
+        self.window_info.change_submissions_sorting_order(col)
+        self.show_submissions_table()
+
+    @pyqtSlot(int)
+    def sort_assignments_table(self, col: int):
+        self.window_info.change_assignments_sorting_order(col)
+        self.show_assignments_table()
 
     def show_submissions_state(self):
         info = self.window_info.current_submission_table
@@ -272,7 +292,7 @@ class ClassWindow(QWidget):
                 color = QColor(*gui_config.submission_color[info.row_color[username]])
                 brush = QBrush(color)
 
-                for col in range(self.submissions_table.rowCount()):
+                for col in range(self.submissions_table.columnCount()):
                     cell = self.submissions_table.item(row, col)
                     cell.setBackground(brush)
 
@@ -280,12 +300,13 @@ class ClassWindow(QWidget):
     @pyqtSlot()
     def assignments_table_double_clicked(self):
         self.close()
-        self.parentWidget().show_assignments_table()
+        self.parentWidget().show_assignment_window(self.window_info.current_class.name,
+                                                   self.window_info.current_assignment_table.current_assignment)
 
     @pyqtSlot()
     def submissions_table_double_clicked(self):
         self.close()
-        self.parentWidget().show_submissions_table()
+        self.parentWidget().show_student_window(self.window_info.current_class.name, self.window_info.current_submission_table.current_student.username)
 
 
 class StudentWindow(QWidget):
@@ -301,7 +322,8 @@ class StudentWindow(QWidget):
         self.back_button.setFixedSize(30, 30)
         self.buttons_layout.addWidget(self.back_button, alignment=Qt.AlignLeft)
         self.label = QLabel(self.student_window_info.set_description())
-        self.layout.addWidget(self.label)
+        self.layout.addLayout(self.buttons_layout)
+        self.layout.addWidget(self.label, alignment=Qt.AlignTop)
         self.setLayout(self.layout)
         self.back_button.clicked.connect(self.back_button_clicked)
 
@@ -322,7 +344,7 @@ class AssignmentWindow(QWidget):
         self.back_button.setArrowType(Qt.LeftArrow)
         self.back_button.setCheckable(True)
         self.back_button.setFixedSize(30, 30)
-        self.layout.addWidget(self.back_button)
+        self.layout.addWidget(self.back_button, alignment=Qt.AlignTop)
         self.setLayout(self.layout)
         self.back_button.clicked.connect(self.back_button_clicked)
 

@@ -2,10 +2,9 @@ import sys
 
 import os
 
-from PyQt5.QtCore import pyqtSignal
-
 from gkeepclient.client_configuration import config
-from gkeepclient.server_interface import server_interface, ServerInterfaceError
+from gkeepclient.server_interface import server_interface
+# from gkeepgui.mock_server_interface import server_interface, config
 
 
 class GlobalInfo:

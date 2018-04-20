@@ -9,6 +9,7 @@ from gkeepgui.gui_configuration import gui_config
 
 from gkeepgui.global_info import global_info
 from gkeepgui.gui_exception import GuiException
+# from gkeepgui.mock_server_interface import ServerInterfaceError
 
 
 class ClassWindowInfo:
@@ -21,31 +22,33 @@ class ClassWindowInfo:
         self.current_class = None
         self.current_assignment_table = None
         self.current_submission_table = None
+        self.sorting_order = (0, 0)
         self.config = gui_config
-        self.refresh()
+        self.build_tables()
         self.change_class(0)
         self.set_description()
 
     def connect(self):
-        # try:
+        if not global_info.is_connected():
             global_info.connect()
-            self.info = global_info.info
-        # except ServerInterfaceError:
-        #     pass
+
+        self.info = global_info.info
 
     def refresh(self):
         global_info.refresh()
         self.info = global_info.info
         self.class_list = []
-
-        for a_class in self.info.class_list():
-            self.class_list.append(FacultyClass(a_class))
-
-        if self.current_assignment_table is not None:
-            self.current_assignment_table.set_rows_content()
+        current_row = self.current_assignment_table.selected_row
+        self.current_assignment_table = AssignmentTable(self.current_class)
 
         if self.current_submission_table is not None:
-            self.current_submission_table.set_rows_content()
+            self.current_assignment_table.select_row(current_row)
+            self.current_submission_table = SubmissionTable(
+                self.current_assignment_table.current_assignment)
+
+    def build_tables(self):
+        for a_class in self.info.class_list():
+            self.class_list.append(FacultyClass(a_class))
 
     def change_class(self, index: int):
         self.current_class = self.class_list[index]
@@ -101,6 +104,28 @@ class ClassWindowInfo:
         else:
             self.fetch_assignments()
             self.refresh()
+
+    def change_submissions_sorting_order(self, col):
+        if self.sorting_order[0] == col:
+            if self.sorting_order[1] == 0:
+                self.sorting_order = (col, 1)
+            else:
+                self.sorting_order = (col, 0)
+        else:
+            self.sorting_order = (col, 0)
+
+        self.current_submission_table.set_sorting_order(col, self.sorting_order[1])
+
+    def change_assignments_sorting_order(self, col):
+        if self.sorting_order[0] == col:
+            if self.sorting_order[1] == 0:
+                self.sorting_order = (col, 1)
+            else:
+                self.sorting_order = (col, 0)
+        else:
+            self.sorting_order = (col, 0)
+
+        self.current_assignment_table.set_sorting_order(col, self.sorting_order[1])
 
 
 class StudentWindowInfo:
@@ -228,7 +253,7 @@ class Table:
         """
         self.col_headers[col] = header
 
-    def set_rows_content(self):
+    def set_rows_content(self, contents: list):
         """
         Set the contents of all rows.
 
@@ -295,12 +320,14 @@ class AssignmentTable(Table):
         super().__init__()
         self._class = a_class
         self.current_assignment = None
+        self.sorting_order = None
         self.set_row_count(a_class.assignment_count)
         self.set_column_count(2)
         self.set_column_headers(['Assignment Name', 'Students Submitted'])
-        self.set_rows_content()
+        self.set_sorting_order(0,
+                               0)  # first attribute for column, second for order
 
-    def set_rows_content(self):
+    def set_rows_content(self, assignments: list):
         """
         Set all the rows' contents to their matching values. Set the 'Students
         Submitted' cell to 'Unpublished' if the assignment has not been
@@ -308,7 +335,7 @@ class AssignmentTable(Table):
         :return:
         """
         for row in range(self.row_count):
-            assignment = self._class.get_assignment_list()[row]
+            assignment = assignments[row]
 
             if assignment.is_published:
                 content = [assignment.name, str(assignment.students_submitted_count)]
@@ -321,7 +348,10 @@ class AssignmentTable(Table):
         self.selected_row = row
 
         if row is not None:
-            self.current_assignment = self._class.get_assignment_list()[row]
+            for assignment in self._class.get_assignment_list():
+                if assignment.name == self.rows_content[row][0]:
+                    self.current_assignment = assignment
+                    break
         else:
             self.current_assignment = None
 
@@ -332,6 +362,27 @@ class AssignmentTable(Table):
 
                 if self.current_assignment.name == assignment.name:
                     self.current_assignment = assignment
+
+    def set_sorting_order(self, col, order):
+        # order = 0 for descending, = 1 for ascending
+        self.sorting_order = (col, order)
+
+        if col == 0:
+            if order == 0:
+                assignments = sorted(self._class.get_assignment_list(), key=lambda assignment: assignment.name)
+            else:
+                assignments = sorted(self._class.get_assignment_list(),
+                                     key=lambda assignment: assignment.name, reverse=True)
+
+        else:
+            if order == 0:
+                assignments = sorted(self._class.get_assignment_list(), key=lambda assignment: assignment.students_submitted_count)
+            else:
+                assignments = sorted(self._class.get_assignment_list(),
+                                     key=lambda
+                                         assignment: assignment.students_submitted_count, reverse=True)
+
+        self.set_rows_content(assignments)
 
     def _show_table(self):
         headers = ''
@@ -374,11 +425,13 @@ class SubmissionTable(Table):
         super().__init__()
         self._assignment = assignment
         self.row_color = {}
+        self.sorting_order = None
+        self.current_student = None
         self.set_row_count(assignment.parent_class.student_count)
         self.set_column_count(3)
         self.set_column_headers(['Student', 'Last Submission Time',
                                  'Submission Count'])
-        self.set_rows_content()
+        self.set_sorting_order(0, 0)
 
     def set_row_count(self, count: int):
         """
@@ -392,7 +445,7 @@ class SubmissionTable(Table):
         for row in range(self.row_count):
             self.rows_content.append([])
 
-    def set_rows_content(self):
+    def set_rows_content(self, submissions):
         """
         Set all the rows' contents to their matching values.
         :return: none
@@ -401,7 +454,7 @@ class SubmissionTable(Table):
             pass
         else:
             for row in range(self.row_count):
-                submission = self._assignment.get_submission_list()[row]
+                submission = submissions[row]
                 content = [submission.student.username,
                            submission.time, str(submission.submission_count)]
                 self.set_row_content(row, content)
@@ -415,6 +468,41 @@ class SubmissionTable(Table):
             self.row_color[submission.student.username] = 1 # green
         else:
             self.row_color[submission.student.username] = 2 # blue
+
+    def set_sorting_order(self, col, order):
+        self.sorting_order = (col, order)
+
+        if col == 0:
+            if order == 0:
+                submissions = sorted(self._assignment.get_submission_list(), key=lambda submission: submission.student.username)
+            else:
+                submissions = sorted(self._assignment.get_submission_list(),
+                                     key=lambda submission: submission.student.username, reverse=True)
+        elif col == 1:
+            if order == 0:
+                submissions = sorted(self._assignment.get_submission_list(), key=lambda submission: submission.time)
+            else:
+                submissions = sorted(self._assignment.get_submission_list(),
+                                     key=lambda submission: submission.time, reverse=True)
+        else:
+            if order == 0:
+                submissions = sorted(self._assignment.get_submission_list(), key=lambda submission: submission.submission_count)
+            else:
+                submissions = sorted(self._assignment.get_submission_list(),
+                                     key=lambda
+                                         submission: submission.submission_count, reverse=True)
+        self.set_rows_content(submissions)
+
+    def select_row(self, row):
+        self.selected_row = row
+
+        if row is not None:
+            for student in self._assignment.parent_class.get_student_list():
+                if self.rows_content[row][0] == student.username:
+                    self.current_student = student
+                    break
+        else:
+            self.current_student = None
 
     def _show_table(self):
         headers = ''
