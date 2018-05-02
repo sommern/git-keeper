@@ -207,6 +207,16 @@ def check_faculty():
     except GkeepException as e:
         raise CheckSystemError(e)
 
+    # Check for duplicate usernames
+    usernames = set()
+    for faculty in faculty_list:
+        if faculty.username in usernames:
+            error = ('Multiple faculty with the username {} are defined in {}'
+                     .format(faculty.username, config.faculty_csv_path))
+            raise CheckSystemError(error)
+
+        usernames.add(faculty.username)
+
     for faculty in faculty_list:
         if not user_exists(faculty.username):
             setup_faculty(faculty)

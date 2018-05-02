@@ -30,6 +30,7 @@ Faculty Exists
 Duplicate Faculty
     [Tags]    error
     Configure Faculty    prof
+    Configure Faculty    prof
     Add File To Server    keeper    files/valid_server.cfg    server.cfg
     Start gkeepd
     Server Not Running
