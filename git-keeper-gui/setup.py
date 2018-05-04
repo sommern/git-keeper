@@ -21,9 +21,10 @@ setup(
     ],
     packages=['gkeepgui'],
     entry_points={
-        'console_scripts': ['gkeepgui=gkeepgui.main_entry:main'],
+        'console_scripts': ['gkeepgui=gkeepgui.gui_main_entry:main'],
     },
     install_requires=['git-keeper-client'],
-    setup_requires=['pytest-runner'],
-    tests_require=['pytest'],
+
+    # setup_requires=['pytest-runner'],
+    # tests_require=['pytest'],
 )

@@ -1,3 +1,9 @@
+"""
+Provides an interface for accessing information about a class, assignment,
+student, or submission. Information is extracted from GlobalInfo.
+"""
+
+
 import json
 import os
 
@@ -10,15 +16,15 @@ from gkeepgui.gui_configuration import gui_config
 
 class FacultyClass:
     """
-    Stores the attributes of a class.
+    Stores the attributes of a class and provides methods for accessing these
+    attributes.
 
     Attributes stored:
         name
         student_count
-        student_list
         assignment_count
-        assignment_list
     """
+
     def __init__(self, class_name: str):
         """
         Constructor.
@@ -27,6 +33,7 @@ class FacultyClass:
 
         :param class_name: name of the class
         """
+
         try:
             self._info = global_info.info
         except ServerInterfaceError:
@@ -44,6 +51,7 @@ class FacultyClass:
 
         :return: list of Student objects
         """
+
         if self._student_list is None:
             self._student_list = []
             for student in self._info.student_list(self.name):
@@ -57,6 +65,7 @@ class FacultyClass:
 
         :return: list of Assignment objects
         """
+
         if self._assignment_list is None:
             self._assignment_list = []
 
@@ -66,12 +75,19 @@ class FacultyClass:
         return self._assignment_list
 
     def __repr__(self):
+        """
+        Get the name of the class as the __repr__ string.
+
+        :return: name of the class
+        """
+
         return self.name
 
 
 class Student:
     """
-    Stores the attributes of a student.
+    Stores the attributes of a student. Provides methods for accessing these
+    attributes.
 
     Attributes stored:
         parent_class: FacultyClass object representing the parent class
@@ -82,17 +98,18 @@ class Student:
         last_first_username
         home_dir
         average_submission_count
-        submission_list
     """
+
     def __init__(self, a_class: FacultyClass, username: str):
         """
         Constructor.
 
         Set the attributes.
 
-        :param a_class: student's class
+        :param a_class: FacultyClass object representing student's class
         :param username: student's username
         """
+
         try:
             self._info = global_info.info
         except ServerInterfaceError:
@@ -117,6 +134,7 @@ class Student:
 
         :return: list of Submission objects
         """
+
         if self._submission_list is None:
             self._submission_list = []
 
@@ -133,7 +151,8 @@ class Student:
 
 class Assignment:
     """
-    Stores the attribute of an assignment.
+    Stores the attribute of an assignment. Provides methods for accessing
+    these attributes.
 
     Attributes stored:
         parent_class: FacultyClass object representing the parent class
@@ -142,10 +161,9 @@ class Assignment:
         reports_hash
         reports_path
         students_submitted_count
-        students_submitted_list
         fetched_path
-        no_submission_list
     """
+
     def __init__(self, a_class: FacultyClass, assignment: str):
         """
         Constructor.
@@ -155,6 +173,7 @@ class Assignment:
         :param a_class: assignment's class
         :param assignment: assignment's name
         """
+
         try:
             self._info = global_info.info
         except ServerInterfaceError:
@@ -170,11 +189,10 @@ class Assignment:
             self._info.student_submitted_count(*class_and_assignment)
         self._submission_list = None
         self.students_submitted_list = None
-        self.no_submission_list = None
         self.fetched_path = self.get_path_from_json()
+
         if self.fetched_path is not None:
             self.set_fetched_path(self.fetched_path)
-        # self.update_submissions()
 
     def get_submission_list(self) -> list:
         """
@@ -183,6 +201,7 @@ class Assignment:
 
         :return: list of Submission objects
         """
+
         if self._submission_list is None:
             self._submission_list = []
             for student in self.parent_class.get_student_list():
@@ -190,22 +209,15 @@ class Assignment:
 
         return self._submission_list
 
-    # def update_submissions(self):
-    #     """
-    #     Update the students_submitted_list and the no_submission_list.
-    #
-    #     :return: None
-    #     """
-    #     self.students_submitted_list = []
-    #     self.no_submission_list = []
-    #
-    #     for submission in self.get_submission_list():
-    #         if submission.submission_count > 0:
-    #             self.students_submitted_list.append(submission)
-    #         else:
-    #             self.no_submission_list.append(submission)
-
     def get_path_from_json(self):
+        """
+        Get the path of the directory where the assignments are fetched from
+        the json file in '~/.config/git-keeper'.
+
+        :return: Path to fetched directory. None if fetched path is not in the
+        file
+        """
+
         with open(gui_config.json_path, 'r') as f:
             paths = json.load(f)
 
@@ -218,11 +230,13 @@ class Assignment:
 
     def set_fetched_path(self, path: str):
         """
-        Set the path to which the submissions for the assignment were fetched.
+        Set the attribute fetched_path to the path to which the submissions
+        for the assignment were fetched.
 
         :param path: path of fetched submissions
         :return: None
         """
+
         self.fetched_path = os.path.join(path, self.name)
 
         for submission in self.get_submission_list():
@@ -234,6 +248,7 @@ class Assignment:
 
         :return: List of Submission objects for fetched submissions.
         """
+
         fetched_list = []
         for submission in self.students_submitted_list:
             if submission.is_fetched():
@@ -242,39 +257,49 @@ class Assignment:
         return fetched_list
 
     def __repr__(self):
+        """
+        Set the __repr__ string of Assignment to assignment's name
+        :return:
+        """
         return self.name
 
 
 class Submission:
     """
-    Store the attributes of a submission.
+    Stores the attributes of a submission. Provides methods for accessing
+    these attributes.
 
     Attributes stored:
-        assignment: Assignment object representing the parent assignment
-        student: Student object representing the owner of the submission
-        parent_class: FacultyClass object representing the parent class
+        assignment
+        student
+        parent_class
         server_hash
-        student_path: path to student's assignment
+        student_path
         submission_count
-        time: submission time in the format 'year/day/month hour:minute:second'
-        fetched_path: path to fetched submission
+        time
+        fetched_path
     """
+
     def __init__(self, student: Student, assignment: Assignment):
         """
         Constructor.
 
         Set the attribute.
 
-        :param a_class: student's class
-        :param student: owner of submission
-        :param assignment: assignment of submission
+        :param student: Student object representing owner of submission
+        :param assignment: Assignment object representing the assignment
         """
-        self._info = global_info.info
+        try:
+            self._info = global_info.info
+        except ServerInterfaceError:
+            pass
+
         self.assignment = assignment
         self.student = student
         self.parent_class = self.assignment.parent_class
-        class_assignment_username = (self.parent_class.name, self.assignment.name,
-                self.student.username)
+        class_assignment_username = (self.parent_class.name,
+                                     self.assignment.name,
+                                     self.student.username)
         self.server_hash = \
             self._info.student_assignment_hash(*class_assignment_username)
         self.student_path = \
@@ -287,6 +312,13 @@ class Submission:
         self.set_fetched_path()
 
     def set_fetched_path(self):
+        """
+        Set class attribute fetched_path to the path where the submission is
+        fetched.
+
+        :return: none
+        """
+
         if self.assignment.fetched_path is not None:
             self.fetched_path = \
                 os.path.join(self.assignment.fetched_path, 'submissions',
@@ -300,6 +332,7 @@ class Submission:
 
         :return: True if fetched, False otherwise.
         """
+
         if self.fetched_path is None:
             is_fetched = False
         else:
@@ -320,4 +353,9 @@ class Submission:
         return is_fetched
 
     def __repr__(self):
+        """
+        Set the __repr__ string of the class to the username of the student.
+
+        :return: student's username
+        """
         return self.student.username
