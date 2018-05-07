@@ -14,7 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Vagrant.configure("2") do |config|
-    config.vm.box = "ubuntu/trusty64"
+    config.vm.box = "ubuntu/xenial64"
     config.vm.provision "shell", inline:<<-SCRIPT
         useradd -ms /bin/bash keeper
         usermod -aG keeper keeper
@@ -38,5 +38,7 @@ Vagrant.configure("2") do |config|
         chown -R keeper /home/keeper/.ssh
         chgrp -R keeper /home/keeper/.ssh
         chmod -R 600 /home/keeper/.ssh/*
+        mkdir -p /home/keeper/.config/systemd/user
     SCRIPT
+    config.vm.provision "file", source:"../files/gkeepd.service", destination:"/home/keeper/.config/systemd/user/gkeepd.service"
 end

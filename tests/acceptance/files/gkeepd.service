@@ -1,0 +1,9 @@
+[Unit]
+Description=git-keeper server
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/gkeepd
+
+[Install]
+WantedBy=default.target

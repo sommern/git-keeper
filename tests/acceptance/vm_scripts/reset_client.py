@@ -23,7 +23,7 @@ def remove_users():
 
     for user in os.listdir('/home'):
         if user not in expected:
-            run_command('sudo userdel -r {}'.format(user))
+            run_command('sudo userdel -r -f {}'.format(user))
 
 
 remove_users()

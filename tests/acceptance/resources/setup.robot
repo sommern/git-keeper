@@ -22,6 +22,9 @@ Launch Gkeepd With Faculty
     Configure Faculty   @{faculty_names}
     Add File To Server    keeper    files/valid_server.cfg    server.cfg
     Start gkeepd
+    :FOR    ${username}    IN    @{faculty_names}
+    \    User Exists    ${username}
+
 
 Setup Faculty Accounts
     [Arguments]    @{usernames}

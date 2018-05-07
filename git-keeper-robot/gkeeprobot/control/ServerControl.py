@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from gkeeprobot.control.VagrantControl import VagrantControl
+from gkeeprobot.control.VagrantInfo import VagrantInfo
 from gkeeprobot.control.VMControl import VMControl
 
 """Provides methods to run commands on gkserver during testing."""
@@ -22,7 +22,7 @@ from gkeeprobot.control.VMControl import VMControl
 class ServerControl:
 
     def __init__(self):
-        self.v = VagrantControl()
+        self.v = VagrantInfo()
         self.vm_control = VMControl()
 
     def run_vm_python_script(self, username, script, *args):

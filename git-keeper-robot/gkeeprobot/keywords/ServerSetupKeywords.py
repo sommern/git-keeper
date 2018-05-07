@@ -34,7 +34,7 @@ class ServerSetupKeywords:
         control.copy(username, filename, target_filename)
 
     def start_gkeepd(self):
-        control.run('keeper', 'screen -S gkserver -d -m gkeepd')
+        control.run('keeper', 'systemctl --user start gkeepd.service')
 
     def add_account_on_server(self, faculty_name):
         cmd = 'sudo useradd -ms /bin/bash {}'.format(faculty_name)

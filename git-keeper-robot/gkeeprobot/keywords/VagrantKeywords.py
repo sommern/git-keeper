@@ -15,11 +15,11 @@
 
 from robot.api import logger
 from gkeepcore.shell_command import run_command_in_directory
-from gkeeprobot.control.VagrantControl import VagrantControl
+from gkeeprobot.control.VagrantInfo import VagrantInfo
 from gkeeprobot.control.ServerControl import ServerControl
 from gkeeprobot.control.ClientControl import ClientControl
 
-vagrant_control = VagrantControl()
+vagrant_control = VagrantInfo()
 server_control = ServerControl()
 client_control = ClientControl()
 
@@ -51,6 +51,8 @@ class VagrantKeywords:
         else:
             logger.console('Start gkserver VM...')
             vagrant_control.v.up(vm_name='gkserver')
+            server_control.copy('keeper', '/vagrant/files/gkeepd.service',
+                                '/home/keeper/.config/systemd/user/gkeepd.service')
         if vagrant_control.is_client_running():
             logger.console('Using existing gkclient VM...')
             VagrantKeywords.client_was_running = True

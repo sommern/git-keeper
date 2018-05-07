@@ -20,7 +20,7 @@ import os
 
 def server_running():
     try:
-        run_command('screen -S gkserver -Q select .')
+        run_command('systemctl --user status gkeepd.service')
         return True
     except CommandError:
         return False
@@ -28,7 +28,11 @@ def server_running():
 
 def stop_gkeepd():
     if server_running():
-        run_command('screen -S gkserver -X quit')
+        run_command('systemctl --user stop gkeepd.service')
+    try:
+        run_command('systemctl --user enable gkeepd.service')
+    except Exception:
+        pass
 
 
 def remove(filename):

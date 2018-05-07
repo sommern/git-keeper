@@ -12,7 +12,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
+from robot.api import logger
 
 from gkeeprobot.control.ClientControl import ClientControl
 from gkeepcore.shell_command import CommandError
@@ -34,7 +34,7 @@ class ClientCheckKeywords:
             cmd = 'gkeep add {} {}.csv'.format(class_name, class_name)
             client_control.run(faculty, cmd)
             raise CommandError('gkeep add should have non-zero return')
-        except CommandError:
+        except Exception:
             pass
 
     def gkeep_modify_succeeds(self, faculty, class_name):

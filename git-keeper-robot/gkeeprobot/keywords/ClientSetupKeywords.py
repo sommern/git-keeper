@@ -12,7 +12,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
+from robot.api import logger
 
 from gkeeprobot.control.ClientControl import ClientControl
 from gkeeprobot.control.ServerControl import ServerControl
@@ -39,13 +39,14 @@ class ClientSetupKeywords:
             client_control.run_vm_bash_script('keeper',
                                               'make_ssh_keys.sh',
                                               name,
-                                              temp_dir_name)
+                                              'ssh_keys')
             server_control.run_vm_bash_script('keeper',
                                               'make_authorized_keys.sh',
                                               name,
-                                              temp_dir_name)
+                                              'ssh_keys')
 
     def add_to_class(self, faculty, class_name, student):
+        logger.console('adding to class {} {} {}'.format(faculty, class_name, student))
         line = 'Last,First,{}@gitkeeper.edu'.format(student)
         client_control.run_vm_python_script(faculty, 'add_to_file.py',
                                             '{}.csv'.format(class_name), line)
