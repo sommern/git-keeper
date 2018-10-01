@@ -311,7 +311,7 @@ class FacultyClassInfo:
         """
         Get the submission count of a student for an assignment.
 
-        :param class_name: name of a class
+        :param class_name: name of a cxlass
         :param assignment: name of an assignment
         :param username: username of a student
         :return: student's submission count for an assignment
@@ -357,8 +357,23 @@ class FacultyClassInfo:
 
         time = localtime(self.student_submission_time(class_name, assignment,
                                                       username))
+        if time.tm_hour < 10:
+            hour = '0{}'.format(time.tm_hour)
+        else:
+            hour = time.tm_hour
+
+        if time.tm_min < 10:
+            min = '0{}'.format(time.tm_min)
+        else:
+            min = time.tm_min
+
+        if time.tm_sec < 10:
+            sec = '0{}'.format(time.tm_sec)
+        else:
+            sec = time.tm_sec
+
         return format_string.format(time.tm_year, time.tm_mon, time.tm_mday,
-                                    time.tm_hour, time.tm_min, time.tm_sec)
+                                    hour, min, sec)
 
     def get_username_from_name(self, class_name: str, name: str) -> str:
         """
