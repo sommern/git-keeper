@@ -12,6 +12,7 @@ from gkeepclient.server_interface import ServerInterfaceError
 from gkeepcore.git_commands import git_head_hash
 from gkeepgui.global_info import global_info
 from gkeepgui.gui_configuration import gui_config
+from gkeepgui.gui_exception import GuiFileException
 
 
 class FacultyClass:
@@ -189,10 +190,14 @@ class Assignment:
             self._info.student_submitted_count(*class_and_assignment)
         self._submission_list = None
         self.students_submitted_list = None
-        self.fetched_path = self.get_path_from_json()
+        fetched_path = self.get_path_from_json()
 
-        if self.fetched_path is not None:
-            self.set_fetched_path(self.fetched_path)
+        if fetched_path is not None:
+            fetched_path = os.path.join(fetched_path, self.parent_class.name)
+            self.set_fetched_path(fetched_path)
+
+        else:
+            self.fetched_path = None
 
     def get_submission_list(self) -> list:
         """
@@ -224,7 +229,9 @@ class Assignment:
         if self.parent_class.name in paths.keys():
 
             if self.name in paths[self.parent_class.name].keys():
-                return paths[self.parent_class.name][self.name]
+                path = paths[self.parent_class.name][self.name]
+
+                return path
         else:
             return None
 
@@ -236,8 +243,12 @@ class Assignment:
         :param path: path of fetched submissions
         :return: None
         """
-
-        self.fetched_path = os.path.join(path, self.name)
+        if os.path.isdir(path):
+            self.fetched_path = os.path.join(path, self.name)
+        else:
+            e = GuiFileException('{} does not exist'.format(path))
+            e.set_path(path)
+            raise e
 
         for submission in self.get_submission_list():
             submission.set_fetched_path()
@@ -323,6 +334,7 @@ class Submission:
             self.fetched_path = \
                 os.path.join(self.assignment.fetched_path, 'submissions',
                              self.student.last_first_username)
+
         else:
             self.fetched_path = None
 

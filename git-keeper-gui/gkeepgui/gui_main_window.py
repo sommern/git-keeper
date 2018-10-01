@@ -56,6 +56,8 @@ class MainWindow(QMainWindow):
         except ServerInterfaceError as e:
             error = e.__repr__()
             self.network_error_message(error)
+        except GuiFileException as e:
+            self.missing_dir_message(e.get_path())
 
         if self.class_window_info is not None:
             self.setCentralWidget(ClassWindow(self.class_window_info))
@@ -117,6 +119,18 @@ class MainWindow(QMainWindow):
             except ServerInterfaceError as e:
                 message_box.close()
                 self.network_error_message(e.__repr__())
+
+        if message_box.clickedButton() == close_button:
+            self.hide()
+
+    def missing_dir_message(self, path):
+        message_box = QMessageBox(self)
+        message_box.setText('Path from submissions_path.json does not '
+                            'exist: {}'.format(path))
+        # message_box.setDetailedText('Remove path from JSON file?')
+        close_button = message_box.addButton(QMessageBox.Close)
+        message_box.show()
+        message_box.exec()
 
         if message_box.clickedButton() == close_button:
             self.hide()
@@ -310,6 +324,7 @@ class ClassWindow(QWidget):
         if self.assignments_table.item(current_row, 0).isSelected():
             self.window_info.select_assignment(
                 self.assignments_table.currentRow())
+
             self.show_submissions_table()
         else:
             self.window_info.select_submission(None)
@@ -457,6 +472,20 @@ class ClassWindow(QWidget):
                     index, QTableWidgetItem(header))
                 index += 1
 
+            current_order = info.sorting_order
+
+            # ascending order
+            if current_order[1] == 0:
+                symbol = '▲'
+            else:
+                symbol = '▼'
+
+            col_name = '{} {}'.format(
+                self.submissions_table.horizontalHeaderItem(
+                    current_order[0]).text(), symbol)
+            self.submissions_table.setHorizontalHeaderItem(current_order[0],
+                                          QTableWidgetItem(col_name))
+
             row_index = 0
             col_index = 0
 
@@ -491,18 +520,35 @@ class ClassWindow(QWidget):
 
             self.show_submissions_state()
 
-            self.submissions_table.itemSelectionChanged.connect(self.submissions_table_selection_changed)
-            self.submissions_table.doubleClicked.connect(self.submissions_table_double_clicked)
+            self.submissions_table.itemSelectionChanged.connect(
+                self.submissions_table_selection_changed)
+            self.submissions_table.doubleClicked.connect(
+                self.submissions_table_double_clicked)
         else:
             self.submissions_table.hide()
 
     @pyqtSlot(int)
     def sort_submissions_table(self, col: int):
-        self.window_info.change_submissions_sorting_order(col)
+        """
+        PyQT slot for signal emitted when clicking on a column's header.
+        Sort column.
+
+        :param col: index of selected column
+        :return: none
+        """
+        current_order = self.window_info.change_submissions_sorting_order(col)
+        table = self.submissions_table
+
         self.show_submissions_table()
 
     @pyqtSlot(int)
     def sort_assignments_table(self, col: int):
+        """
+
+
+        :param col:
+        :return:
+        """
         self.window_info.change_assignments_sorting_order(col)
         self.show_assignments_table()
 

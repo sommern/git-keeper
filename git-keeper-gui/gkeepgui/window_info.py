@@ -174,14 +174,9 @@ class ClassWindowInfo:
         path = assignment.get_path_from_json()
         path = os.path.join(path, self.current_class.name)
 
-        if os.path.isdir(path):
-            fetch_submissions.fetch_submissions(self.current_class.name,
-                                            assignment.name, path)
-            assignment.set_fetched_path(path)
-        else:
-            e = GuiFileException(path + ' does not exist')
-            e.set_path(path)
-            raise e
+        fetch_submissions.fetch_submissions(self.current_class.name,
+                                        assignment.name, path)
+        assignment.set_fetched_path(path)
 
     def fetch_assignments(self):
         """
@@ -219,7 +214,7 @@ class ClassWindowInfo:
         1: descending
 
         :param col: index of the column
-        :return: none
+        :return: current sorting order
         """
         current_col = self.current_submissions_table.sorting_order[0]
         current_order = self.current_submissions_table.sorting_order[1]
@@ -230,6 +225,8 @@ class ClassWindowInfo:
                 self.current_submissions_table.set_sorting_order(col, 0)
         else:
             self.current_submissions_table.set_sorting_order(col, 0)
+
+        return self.current_submissions_table.sorting_order
 
     def change_assignments_sorting_order(self, col):
         """
@@ -610,6 +607,8 @@ class SubmissionsTable(Table):
                        corresponding color indicator for fetching status as
                        values
             current_student: Student object representing selected student
+            sorting_order: a tuple of type
+                (column by which table is sorted, current sorting order)
 
         :param assignment: parent assignment of the submission
         """
@@ -617,6 +616,7 @@ class SubmissionsTable(Table):
         self._assignment = assignment
         self.row_color = {}
         self.current_student = None
+        self.sorting_order = None
         self.set_row_count(assignment.parent_class.student_count)
         self.set_column_count(3)
         self.set_column_headers(['Student', 'Last Submission Time',
