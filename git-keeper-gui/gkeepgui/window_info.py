@@ -16,6 +16,7 @@ from gkeepgui.gui_configuration import gui_config
 
 from gkeepgui.global_info import global_info
 from gkeepgui.gui_exception import GuiException, GuiFileException
+from gkeepgui.submissions_json import submissions_paths
 
 
 class ClassWindowInfo:
@@ -66,13 +67,18 @@ class ClassWindowInfo:
         global_info.refresh()
         self.info = global_info.info
         self.create_classes()
-        current_row = self.current_assignments_table.selected_row
+
+        if self.current_assignments_table.selected_row is not None:
+            current_row = self.current_assignments_table.selected_row
+        else:
+            current_row = None
+
         self.current_assignments_table = AssignmentTable(self.current_class)
 
         if self.current_submissions_table is not None:
             self.current_assignments_table.select_row(current_row)
             self.current_submissions_table = SubmissionsTable(
-                self.current_assignments_table.current_assignment)
+                self.current_assignments_table.current_assignment[0])
 
     def create_classes(self):
         """
@@ -98,18 +104,18 @@ class ClassWindowInfo:
         self.current_assignments_table = AssignmentTable(self.current_class)
         self.current_submissions_table = None
 
-    def select_assignment(self, row):
+    def select_assignment(self, rows):
         """
         Select an assignment when the row containing the column is selected.
         Creates the submissions table.
 
         If no assignment is selected, sets current submissions table to None.
 
-        :param row: index of the row. None if no row is selected.
+        :param rows: index of the row. None if no row is selected.
         :return: none
         """
-        self.current_assignments_table.select_row(row)
-        assignment = self.current_assignments_table.current_assignment
+        self.current_assignments_table.select_row(rows)
+        assignment = self.current_assignments_table.current_assignment[0]
 
         if assignment is not None and assignment.is_published:
             self.current_submissions_table = SubmissionsTable(assignment)
@@ -140,38 +146,16 @@ class ClassWindowInfo:
                                                           assignment_count)
         return description
 
-    def set_submissions_path(self, assignment: str, path):
-        """
-        Set submissions path in the json file at
-        '~/.config/git-keeper/submissions_path.json'.
-
-        :param assignment: name of the assignment
-        :param path: fetched path
-
-        :return: none
-        """
-
-        with open(gui_config.json_path, 'r') as f:
-            paths = json.load(f)
-
-        if self.current_class.name not in paths.keys():
-            paths[self.current_class.name] = {}
-
-        paths[self.current_class.name][assignment] = path
-
-        with open(self.config.json_path, 'w') as f:
-            json.dump(paths, f)
-
     def fetch_assignment(self, assignment: Assignment):
         """
         Grab the path where the assignment is to be fetched to. If fetched
         directory exists, fetch the submissions for that assignment.
 
-        :param assignment: assignment to fetch
         :return: none
         """
 
-        path = assignment.get_path_from_json()
+        path = submissions_paths.get_path(assignment.name,
+                                          self.current_class.name)
         path = os.path.join(path, self.current_class.name)
 
         fetch_submissions.fetch_submissions(self.current_class.name,
@@ -184,10 +168,12 @@ class ClassWindowInfo:
 
         :return: none
         """
-        for assignment in self.current_class.get_assignment_list():
-            self.fetch_assignment(assignment)
 
-    def fetch(self):
+        for assignment in self.current_class.get_assignment_list():
+            if assignment.is_published:
+                self.fetch_assignment(assignment)
+
+    def fetch(self, assignment_selected=False):
         """
         Get the current assignment and fetch it or fetch all if none is
         selected.
@@ -197,9 +183,9 @@ class ClassWindowInfo:
         :return: none
         """
 
-        if self.current_assignments_table.current_assignment is not None:
-            self.fetch_assignment(
-                self.current_assignments_table.current_assignment)
+        if assignment_selected:
+            for assignment in self.current_assignments_table.current_assignment:
+                self.fetch_assignment(assignment)
         else:
             self.fetch_assignments()
 
@@ -264,11 +250,8 @@ class StudentWindowInfo:
         :param student: name of the student
         """
 
-        try:
-            global_info.refresh()
-            self.info = global_info.info
-        except ServerInterfaceError:
-            pass
+        global_info.refresh()
+        self.info = global_info.info
 
         self.title = 'Student Window'
         self.class_name = a_class
@@ -484,6 +467,7 @@ class AssignmentTable(Table):
           homework_1    |       20
           homework_2    |    Unpublished
     """
+
     def __init__(self, a_class: FacultyClass):
         """
         Constructor.
@@ -503,6 +487,7 @@ class AssignmentTable(Table):
         super().__init__()
         self._class = a_class
         self.current_assignment = None
+        self.sorting_order = None
         self.set_row_count(a_class.assignment_count)
         self.set_column_count(2)
         self.set_column_headers(['Assignment Name', 'Students Submitted'])
@@ -527,21 +512,23 @@ class AssignmentTable(Table):
 
             self.set_row_content(row, content)
 
-    def select_row(self, row: int):
+    def select_row(self, rows: list):
         """
         Select a row. Set the current assignment to match the selected row.
         If no row is selected, set current assignment to None.
 
-        :param row: index of selected row
+        :param rows: index of selected row
         :return: none
         """
-        self.selected_row = row
+        self.selected_row = rows
+        self.current_assignment = []
 
-        if row is not None:
-            for assignment in self._class.get_assignment_list():
-                if assignment.name == self.rows_content[row][0]:
-                    self.current_assignment = assignment
-                    break
+        if rows is not None:
+            for row in rows:
+                for assignment in self._class.get_assignment_list():
+                    if assignment.name == self.rows_content[row][0]:
+                        self.current_assignment.append(assignment)
+                        break
         else:
             self.current_assignment = None
 

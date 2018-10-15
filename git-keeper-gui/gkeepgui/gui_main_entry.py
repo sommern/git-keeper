@@ -14,8 +14,5 @@ def main():
     sys.exit(app.exec_())
 
 
-def print1():
-    print(1)
-
 if __name__ == '__main__':
     main()

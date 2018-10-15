@@ -4,16 +4,19 @@ submissions and fetching submissions from students.
 """
 
 import os
-from PyQt5.QtCore import Qt, pyqtSlot
-from PyQt5.QtGui import QColor, QBrush
+
+from PyQt5.QtCore import Qt, pyqtSlot, QEvent
+from PyQt5.QtGui import QColor, QBrush, QFocusEvent
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, \
     QComboBox, QPushButton, QLabel, QTableWidget, QMessageBox, \
     QAbstractItemView, QTableWidgetItem, QToolButton, QFileDialog
 
 from gkeepclient.client_configuration import config
 from gkeepclient.server_interface import ServerInterfaceError
+from gkeepcore.gkeep_exception import GkeepException
 from gkeepgui.gui_configuration import gui_config
 from gkeepgui.gui_exception import GuiFileException
+from gkeepgui.submissions_json import submissions_paths
 
 from gkeepgui.window_info import ClassWindowInfo, \
     StudentWindowInfo, AssignmentWindowInfo
@@ -39,8 +42,10 @@ class MainWindow(QMainWindow):
         self.setGeometry(50, 50, 1000, 1000)
         self.class_window_info = None
         self.setAttribute(Qt.WA_QuitOnClose)
+        self.setFocusPolicy(Qt.ClickFocus)
         self.show()
         self.show_class_window()
+
 
     def show_class_window(self):
         """
@@ -58,6 +63,8 @@ class MainWindow(QMainWindow):
             self.network_error_message(error)
         except GuiFileException as e:
             self.missing_dir_message(e.get_path())
+        except GkeepException as e:
+            self.error_message(e)
 
         if self.class_window_info is not None:
             self.setCentralWidget(ClassWindow(self.class_window_info))
@@ -79,6 +86,8 @@ class MainWindow(QMainWindow):
             self.setCentralWidget(StudentWindow(student_window_info))
         except ServerInterfaceError as e:
             self.network_error_message(e)
+        except GkeepException as e:
+            self.error_message(e)
 
     def show_assignment_window(self, class_name: str, assignment: str):
         """
@@ -96,6 +105,13 @@ class MainWindow(QMainWindow):
             self.setCentralWidget(AssignmentWindow(assignment_window_info))
         except ServerInterfaceError as e:
             self.network_error_message(e)
+
+    def error_message(self, e):
+        message_box = QMessageBox()
+        message_box.setText(e)
+        close_button = message_box.addButton(QMessageBox.Close)
+        message_box.show()
+        message_box.exec()
 
     def network_error_message(self, error):
         """
@@ -136,6 +152,17 @@ class MainWindow(QMainWindow):
             self.hide()
 
 
+class Table(QTableWidget):
+    def __init__(self):
+        super().__init__()
+
+    def focusOutEvent(self, e: QFocusEvent):
+        super(Table, self).focusOutEvent(e)
+        self.parentWidget().show_assignments_table()
+        self.parentWidget().show_submissions_table()
+        self.parentWidget().show_submissions_state()
+
+
 class ClassWindow(QWidget):
     """
     Provides the widget and functionality for viewing classes, assignments,
@@ -164,20 +191,25 @@ class ClassWindow(QWidget):
         self.class_menu = QComboBox(self)
 
         self.refresh_button = QPushButton('Refresh')
-        self.refresh_button.setFixedSize(80, 30)
+        self.refresh_button.setFixedSize(80, 40)
         self.refresh_button.setCheckable(True)
 
-        self.fetch_button = QPushButton('Fetch')
-        self.fetch_button.setFixedSize(80, 30)
+        self.fetch_button = QPushButton('Fetch Selected')
+        self.fetch_button.setFixedSize(120, 40)
         self.fetch_button.setCheckable(True)
 
+        self.fetch_all_button = QPushButton('Fetch all')
+        self.fetch_all_button.setFixedSize(100, 40)
+        self.fetch_all_button.setCheckable(True)
+
         self.description_text = QLabel()
-        self.assignments_table = QTableWidget()
-        self.submissions_table = QTableWidget()
+        self.assignments_table = Table()
+        self.submissions_table = Table()
 
         self.toolbar_layout.addWidget(self.class_menu, Qt.AlignLeft)
         self.toolbar_layout.addWidget(self.refresh_button, Qt.AlignRight)
         self.toolbar_layout.addWidget(self.fetch_button, Qt.AlignRight)
+        self.toolbar_layout.addWidget(self.fetch_all_button, Qt.AlignRight)
         self.toolbar_layout.insertStretch(1, 10)
 
         self.layout.addLayout(self.toolbar_layout)
@@ -186,9 +218,24 @@ class ClassWindow(QWidget):
 
         self.setLayout(self.layout)
 
+        self.setFocusPolicy(Qt.ClickFocus)
+        self.setFocus()
+
         self.create_class_menu()
         self.refresh_button.clicked.connect(self.refresh_button_clicked)
         self.fetch_button.clicked.connect(self.fetch_button_clicked)
+        self.fetch_all_button.clicked.connect(self.fetch_all_button_clicked)
+
+    # def enterEvent(self, event: QEvent):
+    #     self.show_assignments_table()
+    #     self.show_submissions_table()
+    #     self.show_submissions_state()
+
+    # def event(self, event: QEvent):
+    #     if event.type == 25:
+    #         # self.assignments_table.hide()
+    #         print(2)
+    #     return super(ClassWindow, self).event(event)
 
     @pyqtSlot(bool)
     def refresh_button_clicked(self, checked: bool):
@@ -210,6 +257,8 @@ class ClassWindow(QWidget):
             except ServerInterfaceError as e:
                 self.close()
                 self.parentWidget().network_error_message(e)
+            except GkeepException as e:
+                self.popup_error_message(e)
 
     @pyqtSlot(bool)
     def fetch_button_clicked(self, checked: bool):
@@ -234,34 +283,93 @@ class ClassWindow(QWidget):
 
         if checked:
             self.fetch_button.setChecked(False)
-            assignment = \
+            assignments = \
                 self.window_info.current_assignments_table.current_assignment
 
-            if assignment is not None:
-                path = assignment.get_path_from_json()
-
-                if path is None:
-                    path = config.submissions_path
-
-                    if path is None:
-                        file_dialog = QFileDialog(self, Qt.Popup)
-                        path = file_dialog.getExistingDirectory()
-
-                        if path == '':
+            if assignments is not None and len(assignments) > 0:
+                for assignment in assignments:
+                    if assignment.is_published:
+                        try:
+                            path = submissions_paths.get_path(assignment.name,
+                                                 self.window_info.current_class.name)
+                        except FileNotFoundError as e:
+                            submissions_paths.create_json()
                             path = None
 
-                if path is not None:
-                    self.window_info.set_submissions_path(assignment.name,
-                                                          path)
-                    try:
-                        self.window_info.fetch()
-                    except GuiFileException as e:
-                        self.no_dir_message(e.get_path())
+                        if path is None:
+                            try:
+                                path = config.submissions_path
+                            except GkeepException as e:
+                                self.popup_error_message(e)
 
-            else:
-                for assignment in \
-                        self.window_info.current_class.get_assignment_list():
-                    path = assignment.get_path_from_json()
+                            if path is None:
+                                file_dialog = QFileDialog(self, Qt.Popup)
+                                path = file_dialog.getExistingDirectory()
+
+                                if path == '':
+                                    path = None
+
+                        if path is not None:
+                            try:
+                                submissions_paths.set_path(
+                                    assignment.name,
+                                    self.window_info.current_class.name, path)
+                            except FileNotFoundError as e:
+                                submissions_paths.create_json()
+                                submissions_paths.set_path(
+                                    assignment.name,
+                                    self.window_info.current_class.name, path)
+
+                            try:
+                                self.window_info.fetch(True)
+                            except GuiFileException as e:
+                                self.no_dir_message(e.get_path())
+                            except GkeepException as e:
+                                self.popup_error_message(e)
+            # else:
+                # print error no assignment selected
+
+            # else:
+            #     for assignment in \
+            #             self.window_info.current_class.get_assignment_list():
+            #         path = assignment.get_path_from_json()
+            #
+            #         if path is None:
+            #             path = config.submissions_path
+            #
+            #             if path is None:
+            #                 file_dialog = QFileDialog(self, Qt.Popup)
+            #                 path = file_dialog.getExistingDirectory()
+            #
+            #                 if path == '':
+            #                     path = None
+            #
+            #         if path is not None:
+            #             self.window_info.set_submissions_path(assignment, path)
+            #
+            #             try:
+            #                 self.window_info.fetch()
+            #             except GuiFileException as e:
+            #                 self.no_dir_message(e.get_path())
+
+            self.refresh_button_clicked(True)
+
+    @pyqtSlot(bool)
+    def fetch_all_button_clicked(self, checked: bool):
+        if checked:
+            self.fetch_all_button.setChecked(False)
+
+            for assignment in \
+                    self.window_info.current_class.get_assignment_list():
+                if assignment.is_published:
+
+                    try:
+                        path = submissions_paths.get_path(
+                            assignment.name,
+                            self.window_info.current_class.name)
+                    except FileNotFoundError as e:
+                        submissions_paths.create_json()
+                        path = None
 
                     if path is None:
                         path = config.submissions_path
@@ -274,14 +382,16 @@ class ClassWindow(QWidget):
                                 path = None
 
                     if path is not None:
-                        self.window_info.set_submissions_path(assignment, path)
+                        submissions_paths.set_path(
+                            assignment.name,
+                            self.window_info.current_class.name, path)
 
                         try:
                             self.window_info.fetch()
                         except GuiFileException as e:
                             self.no_dir_message(e.get_path())
-
-            self.refresh_button_clicked(True)
+                        except GkeepException as e:
+                            self.popup_error_message(e)
 
     def no_dir_message(self, path):
         """
@@ -301,7 +411,12 @@ class ClassWindow(QWidget):
 
         if message_box.clickedButton() == yes_button:
             os.makedirs(path)
-            self.window_info.fetch()
+
+            try:
+                self.window_info.fetch()
+            except GkeepException as e:
+                self.popup_error_message(e)
+
         else:
             message_box.hide()
             message_box.close()
@@ -312,25 +427,32 @@ class ClassWindow(QWidget):
     def assignments_table_selection_changed(self):
         """
         PyQT slot for the signal emitted when row selection in the assignments
-        table changes. This includes the case where no row is selected.
+        table changes.
 
-        Show the corresponding submissions table or hide submissions table if
-        no row is selected.
+        Show the corresponding submissions table.
 
         :return: none
         """
-        current_row = self.assignments_table.currentRow()
+        selected_items = self.assignments_table.selectedItems()
+        current_rows = []
 
-        if self.assignments_table.item(current_row, 0).isSelected():
-            self.window_info.select_assignment(
-                self.assignments_table.currentRow())
+        for item in selected_items:
+            if item.row() not in current_rows:
+                print(item.row())
+                current_rows.append(item.row())
 
-            self.show_submissions_table()
-        else:
-            self.window_info.select_submission(None)
-            self.submissions_table.hide()
-            self.table_layout.removeWidget(self.submissions_table)
-            self.submissions_table.destroy()
+        if len(current_rows) > 0:
+            try:
+                self.window_info.select_assignment(current_rows)
+            except GkeepException as e:
+                self.popup_error_message(e)
+
+        self.show_submissions_table()
+        # else:
+        #     self.window_info.select_submission(None)
+        #     self.submissions_table.hide()
+        #     self.table_layout.removeWidget(self.submissions_table)
+        #     self.submissions_table.destroy()
 
     @pyqtSlot()
     def submissions_table_selection_changed(self):
@@ -340,7 +462,11 @@ class ClassWindow(QWidget):
 
         :return: none
         """
-        self.window_info.select_submission(self.submissions_table.currentRow())
+        try:
+            self.window_info.select_submission(
+                self.submissions_table.currentRow())
+        except GkeepException as e:
+            self.popup_error_message(e)
 
     def create_class_menu(self):
         """
@@ -395,17 +521,29 @@ class ClassWindow(QWidget):
         self.assignments_table.destroy()
         self.assignments_table.hide()
         self.table_layout.removeWidget(self.assignments_table)
-        self.assignments_table = QTableWidget()
+        self.assignments_table = Table()
         info = self.window_info.current_assignments_table
         self.assignments_table.setRowCount(info.row_count)
         self.assignments_table.setColumnCount(info.col_count)
         index = 0
+        current_order = info.sorting_order
 
         for header in info.col_headers:
             header_item = QTableWidgetItem(header)
             self.assignments_table.setHorizontalHeaderItem(index, header_item)
             index += 1
 
+        if current_order[1] == 0:
+            symbol = '▲'
+        else:
+            symbol = '▼'
+
+        col_name = '{} {}'.format(
+            self.assignments_table.horizontalHeaderItem(
+                current_order[0]).text(), symbol)
+        self.assignments_table.setHorizontalHeaderItem(current_order[0],
+                                                       QTableWidgetItem(
+                                                           col_name))
         row_index = 0
         col_index = 0
 
@@ -444,7 +582,10 @@ class ClassWindow(QWidget):
             self.assignments_table_selection_changed)
 
         # automatically select the first row
-        self.assignments_table.selectRow(0)
+        if info.selected_row is not None:
+            self.assignments_table.selectRow(info.selected_row[0])
+        else:
+            self.assignments_table.selectRow(0)
 
         self.assignments_table.doubleClicked.connect(
             self.assignments_table_double_clicked)
@@ -455,10 +596,11 @@ class ClassWindow(QWidget):
 
         :return: none
         """
+
         self.submissions_table.destroy()
         self.submissions_table.hide()
         self.table_layout.removeWidget(self.submissions_table)
-        self.submissions_table = QTableWidget()
+        self.submissions_table = Table()
         info = self.window_info.current_submissions_table
         self.table_layout.addWidget(self.submissions_table)
 
@@ -577,6 +719,13 @@ class ClassWindow(QWidget):
     def submissions_table_double_clicked(self):
         self.close()
         self.parentWidget().show_student_window(self.window_info.current_class.name, self.window_info.current_submissions_table.current_student.username)
+
+    def popup_error_message(self, e):
+        message_box = QMessageBox()
+        message_box.setText(e.__repr__())
+        close_button = message_box.addButton(QMessageBox.Close)
+        message_box.show()
+        message_box.exec()
 
 
 class StudentWindow(QWidget):

@@ -3,16 +3,14 @@ Provides an interface for accessing information about a class, assignment,
 student, or submission. Information is extracted from GlobalInfo.
 """
 
-
-import json
 import os
 
 from gkeepclient.fetch_submissions import FetchedHashCache
 from gkeepclient.server_interface import ServerInterfaceError
 from gkeepcore.git_commands import git_head_hash
 from gkeepgui.global_info import global_info
-from gkeepgui.gui_configuration import gui_config
 from gkeepgui.gui_exception import GuiFileException
+from gkeepgui.submissions_json import submissions_paths
 
 
 class FacultyClass:
@@ -35,10 +33,7 @@ class FacultyClass:
         :param class_name: name of the class
         """
 
-        try:
-            self._info = global_info.info
-        except ServerInterfaceError:
-            pass
+        self._info = global_info.info
 
         self.name = class_name
         self.student_count = self._info.student_count(class_name)
@@ -175,10 +170,8 @@ class Assignment:
         :param assignment: assignment's name
         """
 
-        try:
-            self._info = global_info.info
-        except ServerInterfaceError:
-            pass
+        self._info = global_info.info
+
 
         self.parent_class = a_class
         self.name = assignment
@@ -190,7 +183,8 @@ class Assignment:
             self._info.student_submitted_count(*class_and_assignment)
         self._submission_list = None
         self.students_submitted_list = None
-        fetched_path = self.get_path_from_json()
+        fetched_path = submissions_paths.get_path(self.name,
+                                                  self.parent_class.name)
 
         if fetched_path is not None:
             fetched_path = os.path.join(fetched_path, self.parent_class.name)
@@ -213,27 +207,6 @@ class Assignment:
                 self._submission_list.append(Submission(student, self))
 
         return self._submission_list
-
-    def get_path_from_json(self):
-        """
-        Get the path of the directory where the assignments are fetched from
-        the json file in '~/.config/git-keeper'.
-
-        :return: Path to fetched directory. None if fetched path is not in the
-        file
-        """
-
-        with open(gui_config.json_path, 'r') as f:
-            paths = json.load(f)
-
-        if self.parent_class.name in paths.keys():
-
-            if self.name in paths[self.parent_class.name].keys():
-                path = paths[self.parent_class.name][self.name]
-
-                return path
-        else:
-            return None
 
     def set_fetched_path(self, path: str):
         """

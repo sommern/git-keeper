@@ -23,7 +23,6 @@ class GlobalInfo:
         self.info = server_interface.get_info(freshness_threshold=0)
 
     def connect(self):
-        # just use the error message in server_interface
         server_interface.connect()
         self._connected = True
         self.refresh()
