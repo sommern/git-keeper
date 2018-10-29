@@ -6,7 +6,7 @@ submissions and fetching submissions from students.
 import os
 
 from PyQt5.QtCore import Qt, pyqtSlot, QEvent
-from PyQt5.QtGui import QColor, QBrush, QFocusEvent
+from PyQt5.QtGui import QColor, QBrush, QFocusEvent, QMouseEvent
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, \
     QComboBox, QPushButton, QLabel, QTableWidget, QMessageBox, \
     QAbstractItemView, QTableWidgetItem, QToolButton, QFileDialog
@@ -155,12 +155,18 @@ class MainWindow(QMainWindow):
 class Table(QTableWidget):
     def __init__(self):
         super().__init__()
+        self.headerClicked = True
 
     def focusOutEvent(self, e: QFocusEvent):
         super(Table, self).focusOutEvent(e)
-        self.parentWidget().show_assignments_table()
-        self.parentWidget().show_submissions_table()
-        self.parentWidget().show_submissions_state()
+
+        if not self.headerClicked:
+            self.parentWidget().show_assignments_table()
+            self.parentWidget().show_submissions_table()
+            self.parentWidget().show_submissions_state()
+        else:
+            self.headerClicked = False
+
 
 
 class ClassWindow(QWidget):
@@ -225,17 +231,6 @@ class ClassWindow(QWidget):
         self.refresh_button.clicked.connect(self.refresh_button_clicked)
         self.fetch_button.clicked.connect(self.fetch_button_clicked)
         self.fetch_all_button.clicked.connect(self.fetch_all_button_clicked)
-
-    # def enterEvent(self, event: QEvent):
-    #     self.show_assignments_table()
-    #     self.show_submissions_table()
-    #     self.show_submissions_state()
-
-    # def event(self, event: QEvent):
-    #     if event.type == 25:
-    #         # self.assignments_table.hide()
-    #         print(2)
-    #     return super(ClassWindow, self).event(event)
 
     @pyqtSlot(bool)
     def refresh_button_clicked(self, checked: bool):
@@ -438,7 +433,6 @@ class ClassWindow(QWidget):
 
         for item in selected_items:
             if item.row() not in current_rows:
-                print(item.row())
                 current_rows.append(item.row())
 
         if len(current_rows) > 0:
@@ -679,7 +673,7 @@ class ClassWindow(QWidget):
         :return: none
         """
         current_order = self.window_info.change_submissions_sorting_order(col)
-        table = self.submissions_table
+        self.submissions_table.headerClicked = True
 
         self.show_submissions_table()
 
@@ -692,6 +686,7 @@ class ClassWindow(QWidget):
         :return:
         """
         self.window_info.change_assignments_sorting_order(col)
+        self.assignments_table.headerClicked = True
         self.show_assignments_table()
 
     def show_submissions_state(self):
