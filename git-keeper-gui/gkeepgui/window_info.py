@@ -204,6 +204,7 @@ class ClassWindowInfo:
         """
         current_col = self.current_submissions_table.sorting_order[0]
         current_order = self.current_submissions_table.sorting_order[1]
+
         if current_col == col:
             if current_order == 0:
                 self.current_submissions_table.set_sorting_order(col, 1)

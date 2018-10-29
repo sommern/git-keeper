@@ -10,6 +10,7 @@ class SubmissionsPaths:
 
     def create_json(self):
         if not self.json_exists():
+            # to do: catch exception ValueError
             with open(self.json_path, 'w'):
                 pass
 
@@ -29,7 +30,7 @@ class SubmissionsPaths:
         :return: Path to fetched directory. None if fetched path is not in the
         file
         """
-
+        # to do: catch exception OSError
         with open(self.json_path, 'r') as f:
             paths = json.load(f)
 
