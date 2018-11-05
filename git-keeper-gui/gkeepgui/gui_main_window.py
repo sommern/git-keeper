@@ -204,7 +204,7 @@ class ClassWindow(QWidget):
         self.fetch_button.setFixedSize(120, 40)
         self.fetch_button.setCheckable(True)
 
-        self.fetch_all_button = QPushButton('Fetch all')
+        self.fetch_all_button = QPushButton('Fetch All')
         self.fetch_all_button.setFixedSize(100, 40)
         self.fetch_all_button.setCheckable(True)
 
@@ -280,94 +280,25 @@ class ClassWindow(QWidget):
             self.fetch_button.setChecked(False)
             assignments = \
                 self.window_info.current_assignments_table.current_assignment
-
-            if assignments is not None and len(assignments) > 0:
-                for assignment in assignments:
-                    if assignment.is_published:
-                        try:
-                            path = submissions_paths.get_path(assignment.name,
-                                                 self.window_info.current_class.name)
-                        except FileNotFoundError as e:
-                            submissions_paths.create_json()
-                            path = None
-
-                        if path is None:
-                            try:
-                                path = config.submissions_path
-                            except GkeepException as e:
-                                self.popup_error_message(e)
-
-                            if path is None:
-                                file_dialog = QFileDialog(self, Qt.Popup)
-                                path = file_dialog.getExistingDirectory()
-
-                                if path == '':
-                                    path = None
-
-                        if path is not None:
-                            try:
-                                submissions_paths.set_path(
-                                    assignment.name,
-                                    self.window_info.current_class.name, path)
-                            except FileNotFoundError as e:
-                                submissions_paths.create_json()
-                                submissions_paths.set_path(
-                                    assignment.name,
-                                    self.window_info.current_class.name, path)
-
-                            try:
-                                self.window_info.fetch(True)
-                            except GuiFileException as e:
-                                self.no_dir_message(e.get_path())
-                            except GkeepException as e:
-                                self.popup_error_message(e)
-            # else:
-                # print error no assignment selected
-
-            # else:
-            #     for assignment in \
-            #             self.window_info.current_class.get_assignment_list():
-            #         path = assignment.get_path_from_json()
-            #
-            #         if path is None:
-            #             path = config.submissions_path
-            #
-            #             if path is None:
-            #                 file_dialog = QFileDialog(self, Qt.Popup)
-            #                 path = file_dialog.getExistingDirectory()
-            #
-            #                 if path == '':
-            #                     path = None
-            #
-            #         if path is not None:
-            #             self.window_info.set_submissions_path(assignment, path)
-            #
-            #             try:
-            #                 self.window_info.fetch()
-            #             except GuiFileException as e:
-            #                 self.no_dir_message(e.get_path())
-
+            self.fetch(assignments)
             self.refresh_button_clicked(True)
 
-    @pyqtSlot(bool)
-    def fetch_all_button_clicked(self, checked: bool):
-        if checked:
-            self.fetch_all_button.setChecked(False)
-
-            for assignment in \
-                    self.window_info.current_class.get_assignment_list():
+    def fetch(self, assignments):
+        if assignments is not None and len(assignments) > 0:
+            for assignment in assignments:
                 if assignment.is_published:
-
                     try:
-                        path = submissions_paths.get_path(
-                            assignment.name,
-                            self.window_info.current_class.name)
+                        path = submissions_paths.get_path(assignment.name,
+                                             self.window_info.current_class.name)
                     except FileNotFoundError as e:
                         submissions_paths.create_json()
                         path = None
 
                     if path is None:
-                        path = config.submissions_path
+                        try:
+                            path = config.submissions_path
+                        except GkeepException as e:
+                            self.popup_error_message(e)
 
                         if path is None:
                             file_dialog = QFileDialog(self, Qt.Popup)
@@ -377,18 +308,32 @@ class ClassWindow(QWidget):
                                 path = None
 
                     if path is not None:
-                        submissions_paths.set_path(
-                            assignment.name,
-                            self.window_info.current_class.name, path)
+                        try:
+                            submissions_paths.set_path(
+                                assignment.name,
+                                self.window_info.current_class.name, path)
+                        except FileNotFoundError as e:
+                            submissions_paths.create_json()
+                            submissions_paths.set_path(
+                                assignment.name,
+                                self.window_info.current_class.name, path)
 
                         try:
-                            self.window_info.fetch()
+                            self.window_info.fetch_assignment(assignment)
                         except GuiFileException as e:
-                            self.no_dir_message(e.get_path())
+                            self.no_dir_message(e.get_path(), assignment)
                         except GkeepException as e:
                             self.popup_error_message(e)
 
-    def no_dir_message(self, path):
+    @pyqtSlot(bool)
+    def fetch_all_button_clicked(self, checked: bool):
+        if checked:
+            self.fetch_all_button.setChecked(False)
+            assignments = self.window_info.current_class.get_assignment_list()
+            self.fetch(assignments)
+            self.refresh_button_clicked(True)
+
+    def no_dir_message(self, path, assignment=None):
         """
         Display the popup message for directory not found. Ask to create the
         directory.
@@ -408,7 +353,10 @@ class ClassWindow(QWidget):
             os.makedirs(path)
 
             try:
-                self.window_info.fetch()
+                if assignment is not None:
+                    self.window_info.fetch_assignment(assignment)
+                else:
+                    self.window_info.fetch_assignments()
             except GkeepException as e:
                 self.popup_error_message(e)
 

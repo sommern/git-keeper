@@ -173,7 +173,7 @@ class ClassWindowInfo:
             if assignment.is_published:
                 self.fetch_assignment(assignment)
 
-    def fetch(self, assignment_selected=False):
+    def fetch(self):
         """
         Get the current assignment and fetch it or fetch all if none is
         selected.
@@ -183,11 +183,9 @@ class ClassWindowInfo:
         :return: none
         """
 
-        if assignment_selected:
-            for assignment in self.current_assignments_table.current_assignment:
-                self.fetch_assignment(assignment)
-        else:
-            self.fetch_assignments()
+        for assignment in self.current_assignments_table.current_assignment:
+            self.fetch_assignment(assignment)
+
 
         self.refresh()
 
