@@ -26,6 +26,10 @@ arguments and calls the appropriate function.
 import sys
 from argparse import ArgumentParser
 
+from gkeepclient.version import __version__ as client_version
+from gkeepcore.path_utils import path_to_assignment_name
+from gkeepcore.version import __version__ as core_version
+
 from argcomplete import autocomplete
 from gkeepclient.client_configuration import config
 from gkeepclient.client_function_decorators import config_parsed
@@ -34,7 +38,7 @@ from gkeepclient.create_config import create_config
 from gkeepclient.fetch_submissions import fetch_submissions, build_dest_path
 from gkeepclient.server_actions import class_add, class_modify, \
     delete_assignment, publish_assignment, update_assignment, \
-    upload_assignment, trigger_tests
+    upload_assignment, trigger_tests, update_status, add_faculty
 from gkeepclient.queries import list_classes, list_assignments, \
     list_students, list_recent
 from gkeepcore.gkeep_exception import GkeepException
@@ -248,6 +252,40 @@ def add_config_subparser(subparsers):
                                            'file')
 
 
+def add_status_subparser(subparsers):
+    """
+    Add a subparser for action 'status', which can change the status of a
+    class to 'open' or 'closed'.
+
+    :param subparsers: subparsers to add to
+    """
+
+    subparser = subparsers.add_parser('status', help='change the status of a '
+                                                     'class')
+    add_class_name_argument(subparser)
+    subparser.add_argument('status', metavar='<class status>',
+                           choices=('open', 'closed'),
+                           help='"open" or "closed"')
+
+
+def add_add_faculty_subparser(subparsers):
+    """
+    Add a subparser for action 'add_faculty', which can add a new faculty user.
+
+    :param subparsers: subparsers to add to
+    """
+
+    subparser = subparsers.add_parser('add_faculty', help='add a new faculty '
+                                                          'user')
+
+    subparser.add_argument('last_name', metavar='<last name>',
+                           help='last name of the faculty member')
+    subparser.add_argument('first_name', metavar='<first name>',
+                           help='last name of the faculty member')
+    subparser.add_argument('email_address', metavar='<email address>',
+                           help='email address of the faculty member')
+
+
 def initialize_action_parser() -> GraderParser:
     """
     Initialize a GraderParser object.
@@ -261,6 +299,8 @@ def initialize_action_parser() -> GraderParser:
     parser = GraderParser()
 
     parser.add_argument('-f', '--config_file', help='Path to config file')
+    parser.add_argument('-v', '--version', action='store_true',
+                        help='Print gkeep version')
 
     subparsers = parser.add_subparsers(dest='subparser_name', title="Actions")
 
@@ -275,6 +315,8 @@ def initialize_action_parser() -> GraderParser:
     add_query_subparser(subparsers)
     add_trigger_subparser(subparsers)
     add_config_subparser(subparsers)
+    add_status_subparser(subparsers)
+    add_add_faculty_subparser(subparsers)
 
     return parser
 
@@ -322,13 +364,20 @@ def main():
     if parsed_args.config_file is not None:
         config.set_config_path(parsed_args.config_file)
 
+    if parsed_args.version:
+        print('gkeep version', client_version)
+
+    # Every action except "config" requires that the configuration file be
+    # parsed
+    if parsed_args.subparser_name != 'config':
+        config.parse()
+
     try:
         take_action(parsed_args)
     except GkeepException as e:
         sys.exit(e)
 
 
-@config_parsed
 def take_action(parsed_args):
     action_name = parsed_args.subparser_name
 
@@ -336,6 +385,11 @@ def take_action(parsed_args):
     class_name = getattr(parsed_args, 'class_name', None)
     if class_name and class_name in config.class_aliases:
         class_name = config.class_aliases[class_name]
+
+    # the user may pass a path for the name of an assignment
+    assignment_name = getattr(parsed_args, 'assignment_name', None)
+    if assignment_name:
+        assignment_name = path_to_assignment_name(assignment_name)
 
     # call the appropriate function for the action
     if action_name == 'add':
@@ -351,22 +405,33 @@ def take_action(parsed_args):
             items = (parsed_args.item,)
         update_assignment(class_name, parsed_args.assignment_path, items)
     elif action_name == 'publish':
-        publish_assignment(class_name, parsed_args.assignment_name)
+        publish_assignment(class_name, assignment_name)
     elif action_name == 'delete':
-        delete_assignment(class_name, parsed_args.assignment_name)
+        delete_assignment(class_name, assignment_name)
     elif action_name == 'fetch':
         dest_path = build_dest_path(parsed_args.destination_path,
                                     class_name)
-        fetch_submissions(class_name, parsed_args.assignment_name,
+        fetch_submissions(class_name, assignment_name,
                           dest_path)
     elif action_name == 'query':
         run_query(parsed_args.query_type, parsed_args.number_of_days)
     elif action_name == 'trigger':
-        trigger_tests(class_name, parsed_args.assignment_name,
+        trigger_tests(class_name, assignment_name,
                       parsed_args.student_usernames)
     elif action_name == 'config':
         create_config()
+    elif action_name == 'status':
+        update_status(class_name, parsed_args.status)
+    elif action_name == 'add_faculty':
+        add_faculty(parsed_args.last_name, parsed_args.first_name,
+                    parsed_args.email_address)
 
 
 if __name__ == '__main__':
+    if core_version != client_version:
+        error = 'git-keeper-client and git-keeper-core versions must match.\n'
+        error += 'client version: {}\n'.format(client_version)
+        error += 'core version: {}'.format(core_version)
+        sys.exit(error)
+
     main()
