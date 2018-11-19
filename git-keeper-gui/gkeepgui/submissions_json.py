@@ -40,6 +40,8 @@ class SubmissionsPaths:
                 path = paths[class_name][assignment]
 
                 return path
+            else:
+                return None
         else:
             return None
 

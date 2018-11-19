@@ -156,10 +156,13 @@ class ClassWindowInfo:
 
         path = submissions_paths.get_path(assignment.name,
                                           self.current_class.name)
-        path = os.path.join(path, self.current_class.name)
+        fetched_path = os.path.join(path, assignment.name)
 
-        fetch_submissions.fetch_submissions(self.current_class.name,
+        if not os.path.isdir(fetched_path):
+            os.makedirs(fetched_path)
+            fetch_submissions.fetch_submissions(self.current_class.name,
                                         assignment.name, path)
+
         assignment.set_fetched_path(path)
 
     def fetch_assignments(self):

@@ -5,15 +5,17 @@ submissions and fetching submissions from students.
 
 import os
 
-from PyQt5.QtCore import Qt, pyqtSlot, QEvent
-from PyQt5.QtGui import QColor, QBrush, QFocusEvent, QMouseEvent
+from PyQt5.QtCore import Qt, pyqtSlot
+from PyQt5.QtGui import QColor, QBrush, QFocusEvent, QCloseEvent
 from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, \
     QComboBox, QPushButton, QLabel, QTableWidget, QMessageBox, \
-    QAbstractItemView, QTableWidgetItem, QToolButton, QFileDialog
+    QAbstractItemView, QTableWidgetItem, QToolButton, QFileDialog, \
+    QPlainTextEdit
 
 from gkeepclient.client_configuration import config
 from gkeepclient.server_interface import ServerInterfaceError
 from gkeepcore.gkeep_exception import GkeepException
+from gkeepgui.class_information import Assignment
 from gkeepgui.gui_configuration import gui_config
 from gkeepgui.gui_exception import GuiFileException
 from gkeepgui.submissions_json import submissions_paths
@@ -45,7 +47,6 @@ class MainWindow(QMainWindow):
         self.setFocusPolicy(Qt.ClickFocus)
         self.show()
         self.show_class_window()
-
 
     def show_class_window(self):
         """
@@ -168,7 +169,6 @@ class Table(QTableWidget):
             self.headerClicked = False
 
 
-
 class ClassWindow(QWidget):
     """
     Provides the widget and functionality for viewing classes, assignments,
@@ -211,6 +211,10 @@ class ClassWindow(QWidget):
         self.description_text = QLabel()
         self.assignments_table = Table()
         self.submissions_table = Table()
+
+        self.fetch_message = QPlainTextEdit()
+        self.fetch_message.setMinimumWidth(500)
+        self.fetch_message.setReadOnly(True)
 
         self.toolbar_layout.addWidget(self.class_menu, Qt.AlignLeft)
         self.toolbar_layout.addWidget(self.refresh_button, Qt.AlignRight)
@@ -285,6 +289,8 @@ class ClassWindow(QWidget):
 
     def fetch(self, assignments):
         if assignments is not None and len(assignments) > 0:
+            self.show_fetch_message()
+
             for assignment in assignments:
                 if assignment.is_published:
                     try:
@@ -319,7 +325,9 @@ class ClassWindow(QWidget):
                                 self.window_info.current_class.name, path)
 
                         try:
+                            self.print_fetch_message(assignment)
                             self.window_info.fetch_assignment(assignment)
+                            self.show_success_fetch_message()
                         except GuiFileException as e:
                             self.no_dir_message(e.get_path(), assignment)
                         except GkeepException as e:
@@ -332,6 +340,18 @@ class ClassWindow(QWidget):
             assignments = self.window_info.current_class.get_assignment_list()
             self.fetch(assignments)
             self.refresh_button_clicked(True)
+
+    def show_fetch_message(self):
+        self.fetch_message.clear()
+        self.fetch_message.show()
+
+    def print_fetch_message(self, assignment: Assignment):
+        text = 'Fetching submissions for {} in class {}'.\
+            format(assignment.name, assignment.parent_class.name)
+        self.fetch_message.appendPlainText(text)
+
+    def show_success_fetch_message(self):
+        self.fetch_message.appendPlainText('Success!')
 
     def no_dir_message(self, path, assignment=None):
         """
@@ -390,11 +410,6 @@ class ClassWindow(QWidget):
                 self.popup_error_message(e)
 
         self.show_submissions_table()
-        # else:
-        #     self.window_info.select_submission(None)
-        #     self.submissions_table.hide()
-        #     self.table_layout.removeWidget(self.submissions_table)
-        #     self.submissions_table.destroy()
 
     @pyqtSlot()
     def submissions_table_selection_changed(self):

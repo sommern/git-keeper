@@ -187,7 +187,6 @@ class Assignment:
                                                   self.parent_class.name)
 
         if fetched_path is not None:
-            fetched_path = os.path.join(fetched_path, self.parent_class.name)
             self.set_fetched_path(fetched_path)
 
         else:
@@ -330,10 +329,7 @@ class Submission:
                 local_hash = git_head_hash(self.fetched_path)
                 cache.set_hash(self.fetched_path, local_hash)
 
-            if local_hash != self.server_hash:
-                is_fetched = False
-            else:
-                is_fetched = True
+            is_fetched = (local_hash == self.server_hash)
 
         return is_fetched
 
