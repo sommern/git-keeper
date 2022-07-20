@@ -28,9 +28,9 @@ from gkeepcore.gkeep_exception import GkeepException
 from gkeepcore.path_utils import user_home_dir, user_log_path, \
     gkeepd_to_faculty_log_path, user_gitkeeper_path
 from gkeepcore.student import Student
-from gkeepcore.system_commands import (sudo_add_user, sudo_set_password, chmod,
-                                       sudo_chown, mkdir, make_symbolic_link,
-                                       mv, sudo_set_shell, sudo_add_user_to_groups)
+from gkeepcore.system_commands import sudo_add_user, sudo_set_password, \
+    chmod, sudo_chown, mkdir, make_symbolic_link, mv, sudo_set_shell, \
+    sudo_add_user_to_groups, user_exists
 from gkeepserver.database import db
 from gkeepserver.email_sender_thread import email_sender
 from gkeepserver.faculty import Faculty
@@ -46,6 +46,16 @@ class UserType(Enum):
     """Enum type for specifying faculty or student users."""
     faculty = 0
     student = 1
+
+
+class UserExistence(Enum):
+    """
+    Enum type for indicating whether a username exists in the system and/or
+    database
+    """
+    DOES_NOT_EXIST = 0
+    EXISTS_IN_DB = 1
+    EXISTS_ON_HOST = 2
 
 
 def initialize_user_log(username):
@@ -209,8 +219,8 @@ def create_user(username, additional_groups=None, shell='bash'):
     return password
 
 
-def setup_user(username, user_type, first_name, last_name, email_address=None,
-               additional_groups=None, shell='bash', user_exists=False):
+def setup_user(username, user_type, first_name, last_name, user_existence,
+               email_address=None, additional_groups=None, shell='bash'):
     """
     Setup a faculty or a student user, email them their credentials, and start
     watching their log file for events.
@@ -226,11 +236,11 @@ def setup_user(username, user_type, first_name, last_name, email_address=None,
     :param user_type: faculty or student
     :param first_name: first name of the user
     :param last_name: last name of the user
+    :param user_existence: a UserExistence instance indicating the existence
+     status of the username
     :param email_address: email address of the user
     :param additional_groups: groups beyond the default group to add the user
      to
-    :param user_exists: True if the user already exists as a faculty or
-     student user
     :param shell: name of the shell for the user
     """
 
@@ -242,7 +252,7 @@ def setup_user(username, user_type, first_name, last_name, email_address=None,
 
     logger.log_info('Setting up user {0}'.format(username))
 
-    if not user_exists:
+    if user_existence == UserExistence.DOES_NOT_EXIST:
         password = create_user(username, additional_groups, shell)
     else:
         sudo_set_shell(username, shell)
@@ -303,7 +313,7 @@ def email_new_user(email_address, first_name, username, password, user_type):
                                priority=email_priority))
 
 
-def create_student_user(student: Student):
+def setup_student_user(student: Student, user_existence: UserExistence):
     """
     Wrapper that calls setup_user() to add a new student user.
 
@@ -311,30 +321,84 @@ def create_student_user(student: Student):
     configuration, and their shell is set to git-shell.
 
     :param student: Student object representing the new student
+    :param user_existence: a UserExistance instance indicating the status of
+     the username on the host and in the db
     """
 
     groups = [config.student_group]
     setup_user(student.username, UserType.student,
-               student.first_name, student.last_name,
+               student.first_name, student.last_name, user_existence,
                email_address=student.email_address,
                additional_groups=groups, shell='git-shell')
 
 
-def add_faculty(last_name, first_name, email_address, admin=False,
-                user_exists=False):
+def validate_home_directory_for_new_user(username):
     """
-    Add a faculty user. If the user already exists as a student user,
-    user_exists must be set to True.
+    Raises a GkeepException if an existing user's home directory contains
+    .gitkeeper. This should only be used when checking if an existing user
+    is suitable to be a new git-keeper user.
+
+    :param username: an existing user
+    """
+
+    gitkeeper_path = user_gitkeeper_path(username)
+    gkeepd_logger.log_debug('Checking that {} exists'.format(gitkeeper_path))
+    if os.path.exists(gitkeeper_path):
+        error = ('User {} exists on the server and {} exists, but the user '
+                 'is not registered as a git-keeper user. Remove {} from the '
+                 'server and try again.'.format(username, gitkeeper_path,
+                                                gitkeeper_path))
+        raise GkeepException(error)
+
+
+def add_faculty(last_name, first_name, email_address, admin=False):
+    """
+    Add a faculty user, or make an existing user a faculty user.
 
     :param last_name: last name of the faculty member
     :param first_name: first name of the faculty member
     :param email_address: email address of the faculty member
     :param admin: True if the faculty member should be an admin
-    :param user_exists: True if the user already exists as a student
     """
 
+    try:
+        email_username, email_domain = email_address.split('@')
+    except ValueError:
+        error = ('{} is not a valid email address'
+                 .format(email_address))
+        raise GkeepException(error)
+
+    gkeepd_logger.log_debug(email_address + ' validated')
+
+    if db.email_exists(email_address):
+        username = db.get_username_from_email(email_address)
+        if db.faculty_username_exists(username):
+            error = ('A faculty user with email {} already exists'
+                     .format(email_address))
+            raise GkeepException(error)
+        elif db.student_username_exists(username):
+            user_existence = UserExistence.EXISTS_IN_DB
+        else:
+            error = ('Database inconsistency: a user exists with the '
+                     'email {}, but is not registered as faculty or '
+                     'student').format(email_address)
+            raise GkeepException(error)
+    else:
+        if user_exists(email_username):
+            user_existence = UserExistence.EXISTS_ON_HOST
+        else:
+            user_existence = UserExistence.DOES_NOT_EXIST
+
+    if user_existence == UserExistence.EXISTS_ON_HOST:
+        validate_home_directory_for_new_user(email_username)
+
+    gkeepd_logger.log_debug(email_address + ' ' + str(user_existence))
+
+    exists_in_db = (user_existence == UserExistence.EXISTS_IN_DB)
+
     faculty = db.insert_faculty(Faculty(last_name, first_name, '',
-                                        email_address, admin), user_exists)
+                                        email_address, admin),
+                                user_exists=exists_in_db)
 
     gkeepd_logger.log_info('Setting up faculty user with email {}'
                            .format(email_address))
@@ -342,9 +406,8 @@ def add_faculty(last_name, first_name, email_address, admin=False,
     groups = [config.keeper_group, config.faculty_group]
 
     setup_user(faculty.username, UserType.faculty, first_name, last_name,
-               email_address=email_address, additional_groups=groups,
-               user_exists=user_exists)
-
+               user_existence, email_address=email_address,
+               additional_groups=groups)
     gkeepd_logger.log_debug('Set up faculty user {}'.format(faculty.username))
 
     return faculty

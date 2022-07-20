@@ -26,7 +26,7 @@ from gkeepcore.student import students_from_csv, Student
 from gkeepcore.system_commands import user_exists, mkdir, sudo_chown
 from gkeepserver.assignments import get_class_assignment_dirs, \
     setup_student_assignment, student_assignment_exists, StudentAssignmentError
-from gkeepserver.user_setup import create_student_user
+from gkeepserver.user_setup import setup_student_user, validate_home_directory_for_new_user, UserExistence
 from gkeepserver.database import db, DatabaseException
 from gkeepserver.event_handler import EventHandler, HandlerException
 from gkeepserver.gkeepd_logger import gkeepd_logger
@@ -79,7 +79,8 @@ class StudentsAddHandler(EventHandler):
         # Add class directory in students' home directories. Add student
         # accounts if necessary.
 
-        # students we need to add accounts for
+        # students we need to add accounts for, or that exist on the server but
+        # are not in the db
         new_users = []
         # students who are already faculty users
         faculty_users = []
@@ -97,9 +98,14 @@ class StudentsAddHandler(EventHandler):
         # create new student accounts
         for student in new_users:
             try:
+                if user_exists(student.username):
+                    validate_home_directory_for_new_user(student.username)
+                    user_existence = UserExistence.EXISTS_ON_HOST
+                else:
+                    user_existence = UserExistence.DOES_NOT_EXIST
+
                 db.insert_student(student)
-                if not user_exists(student.username):
-                    create_student_user(student)
+                setup_student_user(student, user_existence)
             except Exception as e:
                 error = ('Error adding student with email {0}: {1}'
                          .format(student.email_address, e))
@@ -236,7 +242,6 @@ class StudentsAddHandler(EventHandler):
         """
 
         self._log_to_faculty('STUDENTS_ADD_ERROR', error)
-
 
     def _log_warning_to_faculty(self, warning):
         """
