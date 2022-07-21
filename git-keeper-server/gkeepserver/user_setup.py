@@ -48,14 +48,14 @@ class UserType(Enum):
     student = 1
 
 
-class UserExistence(Enum):
+class NewUserAction(Enum):
     """
     Enum type for indicating whether a username exists in the system and/or
     database
     """
-    DOES_NOT_EXIST = 0
-    EXISTS_IN_DB = 1
-    EXISTS_ON_HOST = 2
+    NEW_USER_NEW_DB = 0
+    NEW_DB_ROLE = 1
+    SETUP_EXISTING_USER = 2
 
 
 def initialize_user_log(username):
@@ -219,7 +219,7 @@ def create_user(username, additional_groups=None, shell='bash'):
     return password
 
 
-def setup_user(username, user_type, first_name, last_name, user_existence,
+def setup_user(username, user_type, first_name, last_name, action,
                email_address=None, additional_groups=None, shell='bash'):
     """
     Setup a faculty or a student user, email them their credentials, and start
@@ -236,8 +236,7 @@ def setup_user(username, user_type, first_name, last_name, user_existence,
     :param user_type: faculty or student
     :param first_name: first name of the user
     :param last_name: last name of the user
-    :param user_existence: a UserExistence instance indicating the existence
-     status of the username
+    :param action: a NewUserAction instance indicating the action to perform
     :param email_address: email address of the user
     :param additional_groups: groups beyond the default group to add the user
      to
@@ -252,7 +251,7 @@ def setup_user(username, user_type, first_name, last_name, user_existence,
 
     logger.log_info('Setting up user {0}'.format(username))
 
-    if user_existence == UserExistence.DOES_NOT_EXIST:
+    if action == NewUserAction.NEW_USER_NEW_DB:
         password = create_user(username, additional_groups, shell)
     else:
         sudo_set_shell(username, shell)
@@ -313,7 +312,7 @@ def email_new_user(email_address, first_name, username, password, user_type):
                                priority=email_priority))
 
 
-def setup_student_user(student: Student, user_existence: UserExistence):
+def setup_student_user(student: Student, user_existence: NewUserAction):
     """
     Wrapper that calls setup_user() to add a new student user.
 
@@ -377,24 +376,23 @@ def add_faculty(last_name, first_name, email_address, admin=False):
                      .format(email_address))
             raise GkeepException(error)
         elif db.student_username_exists(username):
-            user_existence = UserExistence.EXISTS_IN_DB
+            action = NewUserAction.NEW_DB_ROLE
         else:
             error = ('Database inconsistency: a user exists with the '
                      'email {}, but is not registered as faculty or '
                      'student').format(email_address)
             raise GkeepException(error)
+    elif db.faculty_username_exists(email_username):
+        action = NewUserAction.NEW_USER_NEW_DB
+    elif user_exists(email_username):
+        action = NewUserAction.SETUP_EXISTING_USER
     else:
-        if user_exists(email_username):
-            user_existence = UserExistence.EXISTS_ON_HOST
-        else:
-            user_existence = UserExistence.DOES_NOT_EXIST
+        action = NewUserAction.NEW_USER_NEW_DB
 
-    if user_existence == UserExistence.EXISTS_ON_HOST:
+    if action == NewUserAction.SETUP_EXISTING_USER:
         validate_home_directory_for_new_user(email_username)
 
-    gkeepd_logger.log_debug(email_address + ' ' + str(user_existence))
-
-    exists_in_db = (user_existence == UserExistence.EXISTS_IN_DB)
+    exists_in_db = (action == NewUserAction.NEW_DB_ROLE)
 
     faculty = db.insert_faculty(Faculty(last_name, first_name, '',
                                         email_address, admin),
@@ -406,8 +404,7 @@ def add_faculty(last_name, first_name, email_address, admin=False):
     groups = [config.keeper_group, config.faculty_group]
 
     setup_user(faculty.username, UserType.faculty, first_name, last_name,
-               user_existence, email_address=email_address,
-               additional_groups=groups)
+               action, email_address=email_address, additional_groups=groups)
     gkeepd_logger.log_debug('Set up faculty user {}'.format(faculty.username))
 
     return faculty
