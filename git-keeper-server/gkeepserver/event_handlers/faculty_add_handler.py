@@ -19,6 +19,7 @@
 import json
 
 from gkeepcore.path_utils import user_from_log_path
+from gkeepserver.database import db
 from gkeepserver.event_handler import EventHandler, HandlerException
 from gkeepserver.user_setup import add_faculty
 from gkeepserver.gkeepd_logger import gkeepd_logger
@@ -37,6 +38,10 @@ class FacultyAddHandler(EventHandler):
         """
 
         try:
+            if not db.is_admin(self._adder_username):
+                error = 'User {} is not an admin'.format(self._adder_username)
+                raise HandlerException(error)
+
             try:
                 _, _ = self._email_address.split('@')
             except ValueError:
