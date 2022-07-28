@@ -29,6 +29,13 @@ from gkeepcore.path_utils import path_to_assignment_name
 
 class UploadDirectoryError(GkeepException):
     """
+    Thrown if there are any errors when checking the upload directory.
+    """
+    pass
+
+
+class UploadDirectoryItemMissing(UploadDirectoryError):
+    """
     Thrown by the UploadDirectory constructor if a required file or directory
     does not exist.
     """
@@ -47,8 +54,8 @@ class UploadDirectory:
     Stores the paths to everything in an assignment directory uploaded or to
     be uploaded by the client.
 
-    Constructor raises UploadDirectoryError if any of the required paths do
-    not exist.
+    Raises UploadDirectoryError if there are any issues when checking the
+    directory.
 
     Public attributes:
 
@@ -66,9 +73,9 @@ class UploadDirectory:
         """
         Assign attributes based on path.
 
-        Raise ConfigDirectoryError if any required paths do not exist.  Also
-        if assignment.cfg is present, this exception is raised if there
-        is an error in the file.
+        Raise ConfigDirectoryError if any required paths do not exist or if
+        base_code is empty.  Also if assignment.cfg is present, this exception
+        is raised if there is an error in the file.
 
         :param path: path to the assignment directory
         :param check: if True, raise an exception if any files or directories
@@ -92,20 +99,28 @@ class UploadDirectory:
             self.action_script_path = None
 
         if check:
+            if not os.path.isdir(self.path):
+                raise UploadDirectoryItemMissing(self.path)
+
             self.action_script, self.action_script_interpreter = \
                 get_action_script_and_interpreter(self.tests_path)
 
             if self.action_script is None:
-                raise UploadDirectoryError('action script')
+                raise UploadDirectoryItemMissing('action script')
 
             # ensure all required directories exist
             for dir_path in (self.path, self.base_code_path, self.tests_path):
                 if not os.path.isdir(dir_path):
-                    raise UploadDirectoryError(dir_path)
+                    raise UploadDirectoryItemMissing(dir_path)
+
+            # ensure base_code is not empty
+            if not os.listdir(self.base_code_path):
+                raise UploadDirectoryError('{} is empty'
+                                           .format(self.base_code_path))
 
             # ensure email.txt exists
             if not os.path.isfile(self.email_path):
-                raise UploadDirectoryError(self.email_path)
+                raise UploadDirectoryItemMissing(self.email_path)
 
             # Verify that the appropriate fields are present in assignment.cfg
             # if it exists.
