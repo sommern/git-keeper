@@ -295,7 +295,7 @@ def faculty_info_path(gitkeeper_path: str):
     :return: path to the info directory
     """
 
-    return os.path.join(gitkeeper_path, 'info')
+    return '{}/info'.format(gitkeeper_path)
 
 
 def assignment_published_file_path(class_name: str, assignment_name: str,

@@ -306,8 +306,12 @@ class ServerInterface:
 
         # we'll be replacing source_path with dest_path in strings later, so
         # make sure neither have trailing slashes
-        source_path = source_path.rstrip('/')
-        dest_path = dest_path.rstrip('/')
+        if os.name == 'nt':
+            source_path = source_path.rstrip('\\')
+            dest_path = dest_path.rstrip('\\')
+        else:
+            source_path = source_path.rstrip('/')
+            dest_path = dest_path.rstrip('/')
 
         try:
             # create the top directory
@@ -320,11 +324,15 @@ class ServerInterface:
                 for dir_name in dir_names:
                     local_path = os.path.join(dir_path, dir_name)
                     remote_path = local_path.replace(source_path, dest_path, 1)
+                    if os.name == 'nt':
+                        remote_path = remote_path.replace('\\', '/')
                     self.create_directory(remote_path)
 
                 for file_name in file_names:
                     local_path = os.path.join(dir_path, file_name)
                     remote_path = local_path.replace(source_path, dest_path, 1)
+                    if os.name == 'nt':
+                        remote_path = remote_path.replace('\\', '/')
                     self.copy_file(local_path, remote_path)
 
         except Exception as e:
