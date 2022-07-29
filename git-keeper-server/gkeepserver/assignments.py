@@ -33,7 +33,7 @@ from gkeepcore.path_utils import parse_faculty_assignment_path, \
     user_home_dir, faculty_class_dir_path, student_assignment_repo_path, \
     student_class_dir_path, faculty_assignment_dir_path, user_gitkeeper_path
 from gkeepcore.shell_command import CommandError
-from gkeepcore.system_commands import cp, chmod, mkdir, sudo_chown, rm
+from gkeepserver.system_commands import cp, chmod, mkdir, sudo_chown, rm
 from gkeepserver.database import db
 from gkeepserver.directory_locks import directory_locks
 from gkeepserver.email_sender_thread import email_sender

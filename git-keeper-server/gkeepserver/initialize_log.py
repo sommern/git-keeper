@@ -22,7 +22,7 @@ that warns against editing the file.
 import os
 from tempfile import TemporaryDirectory
 
-from gkeepcore.system_commands import mv, sudo_chown, chmod
+from gkeepserver.system_commands import mv, sudo_chown, chmod
 
 
 def initialize_log(log_path, user_owner, group_owner, mode):

@@ -20,7 +20,7 @@ from tempfile import TemporaryDirectory
 from time import time
 
 from gkeepcore.git_commands import git_clone, git_push
-from gkeepcore.system_commands import sudo_chown, mv, rm
+from gkeepserver.system_commands import sudo_chown, mv, rm
 from gkeepserver.assignments import AssignmentDirectory
 from gkeepserver.server_configuration import config
 

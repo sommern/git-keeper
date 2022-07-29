@@ -23,7 +23,7 @@ from gkeepcore.path_utils import user_from_log_path, student_class_dir_path, \
     user_home_dir
 from gkeepcore.shell_command import CommandError
 from gkeepcore.student import students_from_csv, Student
-from gkeepcore.system_commands import user_exists, mkdir, sudo_chown
+from gkeepserver.system_commands import user_exists, mkdir, sudo_chown
 from gkeepserver.assignments import get_class_assignment_dirs, \
     setup_student_assignment, student_assignment_exists, StudentAssignmentError
 from gkeepserver.user_setup import setup_student_user, \

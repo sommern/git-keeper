@@ -16,7 +16,7 @@
 import os
 from tempfile import TemporaryDirectory
 
-from gkeepcore.system_commands import sudo_chown, chmod, mv
+from gkeepserver.system_commands import sudo_chown, chmod, mv
 
 
 def write_and_install_file(contents, filename, dest_path, owner, group, mode):

@@ -60,7 +60,7 @@ from time import time, sleep
 
 from gkeepcore.gkeep_exception import GkeepException
 from gkeepcore.log_file import LogFileReader, LogFileException
-from gkeepcore.system_commands import file_is_readable
+from gkeepserver.system_commands import file_is_readable
 from gkeepserver.database import db
 from gkeepserver.gkeepd_logger import GkeepdLoggerThread
 

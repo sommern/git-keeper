@@ -19,6 +19,7 @@ Provides functionality for easily pushing a solution to the server for testing.
 """
 
 import os
+import shutil
 from tempfile import TemporaryDirectory
 
 from gkeepclient.client_configuration import config
@@ -29,7 +30,6 @@ from gkeepclient.server_interface import server_interface
 from gkeepcore.git_commands import git_clone_remote, git_add_all, git_commit, \
     git_push, git_unstaged_changes_exist
 from gkeepcore.gkeep_exception import GkeepException
-from gkeepcore.system_commands import cp, rm
 
 
 @config_parsed
@@ -63,7 +63,7 @@ def test_solution(class_name: str, assignment_name: str, solution_path: str):
 
     solution_temp_path = os.path.join(temp_dir.name, solution_base_name)
 
-    cp(solution_path, solution_temp_path, recursive=True)
+    shutil.copytree(solution_path, solution_temp_path)
 
     repo_temp_path = os.path.join(temp_dir.name, 'clone')
 
@@ -78,11 +78,12 @@ def test_solution(class_name: str, assignment_name: str, solution_path: str):
 
     git_clone_remote(clone_url, repo_temp_path)
 
-    if os.path.isdir(os.path.join(solution_temp_path, '.git')):
-        rm(os.path.join(solution_temp_path, '.git'), recursive=True)
+    dest_path = os.path.join(solution_temp_path, '.git')
 
-    cp(os.path.join(repo_temp_path, '.git'), solution_temp_path,
-       recursive=True)
+    if os.path.isdir(dest_path):
+        shutil.rmtree(dest_path)
+
+    shutil.copytree(os.path.join(repo_temp_path, '.git'), dest_path)
 
     if git_unstaged_changes_exist(solution_temp_path):
         git_add_all(solution_temp_path)

@@ -13,11 +13,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
+from pathlib import Path
+import shutil
 
-from gkeepcore.system_commands import mkdir, touch, cp
 from gkeepcore.gkeep_exception import GkeepException
 from gkeepclient.client_configuration import config
-import os
 
 
 def new_assignment(assignment_path, assignment_template=None):
@@ -45,11 +46,11 @@ def new_default_assignment(assignment_path):
     Create a directory containing the required files and directories:
       base_code, email.txt, tests, action.sh, and assignment.cfg
     """
-    mkdir(assignment_path)
-    mkdir('{}/base_code'.format(assignment_path))
-    touch('{}/email.txt'.format(assignment_path))
-    mkdir('{}/tests'.format(assignment_path))
-    touch('{}/tests/action.sh'.format(assignment_path))
+    os.mkdir(assignment_path)
+    os.mkdir(os.path.join(assignment_path, 'base_code'))
+    Path(os.path.join(assignment_path, 'email.txt')).touch()
+    os.mkdir(os.path.join(assignment_path, 'tests'))
+    Path(os.path.join(assignment_path, 'tests', 'action.sh')).touch()
 
     template = '''# All values are optional
 # See https://git-keeper.readthedocs.io/en/latest/
@@ -63,7 +64,9 @@ def new_default_assignment(assignment_path):
 # announcement_subject: [{class_name}] New assignment: {assignment_name}
 # results_subject: [{class_name}] {assignment_name} test results
 '''
-    with open('{}/assignment.cfg'.format(assignment_path), 'w') as f:
+
+    assignment_cfg_path = os.path.join(assignment_path, 'assignment.cfg')
+    with open(assignment_cfg_path, 'w') as f:
         f.write(template)
 
 
@@ -74,4 +77,4 @@ def new_assignment_from_template(assignment_path, assignment_template):
     templates_path = os.path.join(config.templates_path, assignment_template)
     if not os.path.exists(templates_path):
         raise GkeepException('Unknown template: {}'.format(templates_path))
-    cp(templates_path, assignment_path, recursive=True)
+    shutil.copytree(templates_path, assignment_path)

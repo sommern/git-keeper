@@ -28,7 +28,7 @@ from gkeepcore.gkeep_exception import GkeepException
 from gkeepcore.path_utils import user_home_dir, user_log_path, \
     gkeepd_to_faculty_log_path, user_gitkeeper_path
 from gkeepcore.student import Student
-from gkeepcore.system_commands import sudo_add_user, sudo_set_password, \
+from gkeepserver.system_commands import sudo_add_user, sudo_set_password, \
     chmod, sudo_chown, mkdir, make_symbolic_link, mv, sudo_set_shell, \
     sudo_add_user_to_groups, user_exists
 from gkeepserver.database import db

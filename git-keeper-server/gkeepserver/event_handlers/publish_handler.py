@@ -26,7 +26,7 @@ from gkeepcore.git_commands import git_add_all, git_commit
 from gkeepcore.path_utils import faculty_assignment_dir_path, \
     user_gitkeeper_path
 from gkeepcore.student import StudentError, Student
-from gkeepcore.system_commands import touch, mkdir
+from gkeepserver.system_commands import touch, mkdir
 from gkeepserver.assignments import AssignmentDirectory, \
     AssignmentDirectoryError, setup_student_assignment, StudentAssignmentError
 from gkeepserver.database import db

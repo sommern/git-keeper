@@ -18,7 +18,7 @@
 
 
 from gkeepcore.path_utils import user_from_log_path
-from gkeepcore.system_commands import sudo_set_password
+from gkeepserver.system_commands import sudo_set_password
 from gkeepserver.database import db
 from gkeepserver.email_sender_thread import email_sender
 from gkeepserver.generate_password import generate_password

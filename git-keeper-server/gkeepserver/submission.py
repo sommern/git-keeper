@@ -33,8 +33,8 @@ from gkeepserver.gkeepd_logger import gkeepd_logger as logger
 from gkeepcore.git_commands import git_clone, git_add_all, git_commit, \
     git_checkout
 from gkeepcore.assignment_config import AssignmentConfig, TestEnv
-from gkeepcore.system_commands import cp, sudo_chown, rm, chmod, mv
-from gkeepcore.shell_command import run_command, CommandError, CommandExitCodeError
+from gkeepserver.system_commands import cp, sudo_chown, rm, chmod, mv
+from gkeepcore.shell_command import run_command, CommandExitCodeError
 from gkeepserver.email_sender_thread import email_sender
 from gkeepserver.info_update_thread import info_updater
 from gkeepserver.reports import reports_clone

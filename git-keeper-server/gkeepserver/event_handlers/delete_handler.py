@@ -23,7 +23,7 @@ Event type: DELETE
 from gkeepcore.gkeep_exception import GkeepException
 from gkeepcore.path_utils import user_from_log_path, \
     faculty_assignment_dir_path, user_gitkeeper_path
-from gkeepcore.system_commands import rm
+from gkeepserver.system_commands import rm
 from gkeepserver.assignments import AssignmentDirectory, \
     remove_student_assignment
 from gkeepserver.database import db

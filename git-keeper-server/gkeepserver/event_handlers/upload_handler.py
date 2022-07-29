@@ -26,8 +26,8 @@ from gkeepcore.gkeep_exception import GkeepException
 from gkeepcore.path_utils import user_from_log_path, \
     faculty_assignment_dir_path, user_gitkeeper_path
 from gkeepcore.shell_command import CommandError
-from gkeepcore.system_commands import chmod, sudo_chown, rm, mkdir
-from gkeepcore.assignment_config import TestEnv, AssignmentConfig
+from gkeepserver.system_commands import chmod, sudo_chown, rm, mkdir
+from gkeepcore.assignment_config import AssignmentConfig
 from gkeepcore.upload_directory import UploadDirectory, UploadDirectoryError
 from gkeepcore.valid_names import validate_assignment_name
 from gkeepserver.assignments import AssignmentDirectory, \

@@ -34,7 +34,7 @@ from gkeepcore.git_commands import git_head_hash, git_hashes_and_times
 from gkeepcore.gkeep_exception import GkeepException
 from gkeepcore.path_utils import user_home_dir, student_assignment_repo_path, \
     faculty_info_path, user_gitkeeper_path, faculty_assignment_dir_path
-from gkeepcore.system_commands import sudo_chown, chmod, mv, mkdir, rm
+from gkeepserver.system_commands import sudo_chown, chmod, mv, mkdir, rm
 from gkeepserver.assignments import AssignmentDirectory
 from gkeepserver.database import db
 from gkeepserver.gkeepd_logger import gkeepd_logger as logger

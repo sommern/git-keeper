@@ -13,8 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from gkeepcore.system_commands import chmod
-from gkeepcore.shell_command import run_command
+from gkeepserver.system_commands import chmod
 from tempfile import TemporaryDirectory
 
 from gkeeprobot.control.ServerCommunication import ServerCommunication

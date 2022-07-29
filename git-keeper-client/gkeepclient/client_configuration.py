@@ -140,7 +140,7 @@ class ClientConfiguration:
             raise ClientConfigurationError('parse() may only be called once')
 
         if self._config_path is None:
-            relative_path = '.config/git-keeper/client.cfg'
+            relative_path = os.path.join('.config', 'git-keeper', 'client.cfg')
             self._config_path = os.path.join(self.local_home_dir,
                                              relative_path)
 
@@ -207,7 +207,8 @@ class ClientConfiguration:
     def _set_local_options(self):
         # Initialize all attributes related to the local client machine
         self.submissions_path = None
-        self.templates_path = os.path.expanduser('~/.config/git-keeper/templates')
+        self.templates_path = os.path.join(self._config_path, 'templates')
+        self.templates_path = os.path.expanduser(self.templates_path)
 
         if 'local' not in self._parser.sections():
             return

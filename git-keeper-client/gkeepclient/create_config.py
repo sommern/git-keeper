@@ -20,14 +20,15 @@ Provides the function for creating a new client.cfg file.
 import os
 
 from gkeepclient.text_ui import confirmation
-from gkeepcore.system_commands import mkdir
 
 
 def create_config():
     """
     Prompt the user for configuration parameters and creates client.cfg
     """
-    dirpath = os.path.expanduser("~/.config/git-keeper/")
+
+    dirpath = os.path.join('~', '.config', 'git-keeper')
+    dirpath = os.path.expanduser(dirpath)
     filepath = os.path.join(dirpath, "client.cfg")
     if not check_config_file(dirpath, filepath):
         return
@@ -71,7 +72,7 @@ def check_config_file(dirpath, filepath):
     :return: True if we should proceed with writing client.cfg, False otherwise
     """
     if not os.path.isdir(dirpath):
-        mkdir(dirpath)
+        os.makedirs(dirpath)
     if os.path.isfile(filepath):
         return confirmation("client.cfg already exists. "
                             "Do you want to overwrite?")

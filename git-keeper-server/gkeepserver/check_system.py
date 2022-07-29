@@ -27,10 +27,10 @@ import os
 
 from gkeepcore.gkeep_exception import GkeepException
 from gkeepcore.path_utils import user_home_dir
-from gkeepcore.system_commands import (CommandError, user_exists, group_exists,
-                                       sudo_add_group, mode, chmod,
-                                       this_user, this_group, sudo_add_user,
-                                       group_owner, sudo_chown, sudo_add_user_to_group)
+from gkeepserver.system_commands import (CommandError, user_exists, group_exists,
+                                         sudo_add_group, mode, chmod,
+                                         this_user, this_group, sudo_add_user,
+                                         group_owner, sudo_chown, sudo_add_user_to_group)
 from gkeepserver.user_setup import add_faculty
 from gkeepserver.database import db
 from gkeepserver.gkeepd_logger import gkeepd_logger as gkeepd_logger
