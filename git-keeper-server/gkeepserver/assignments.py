@@ -27,7 +27,7 @@ from pkg_resources import resource_exists, resource_string, ResolutionError, \
     ExtractionError
 
 from gkeepcore.git_commands import git_init_bare, git_init, git_add_all, \
-    git_commit, git_push, git_config
+    git_commit, git_push, git_config, git_rename_branch
 from gkeepcore.gkeep_exception import GkeepException
 from gkeepcore.path_utils import parse_faculty_assignment_path, \
     user_home_dir, faculty_class_dir_path, student_assignment_repo_path, \
@@ -281,6 +281,10 @@ def create_base_code_repo(assignment_dir: AssignmentDirectory,
         # pushes
         git_config(assignment_dir.base_code_repo_path,
                    ('receive.denyNonFastForwards', 'true'))
+
+        # change the branch to the configured default branch
+        git_rename_branch(assignment_dir.base_code_repo_path,
+                          config.default_git_branch)
 
     except GkeepException as e:
         error = 'error building base code repository: {0}'.format(str(e))

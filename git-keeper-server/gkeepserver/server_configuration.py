@@ -68,6 +68,7 @@ Attributes:
     tests_timeout - maximum number of seconds for tests to run
     tests_memory_limit - maximum amount of memory per test, in MB
     default_test_env - default TestEnv for running tests
+    default_git_branch - default branch name for git repos
 
     from_name - the name that emails are from
     from_address - the address that emails are from
@@ -207,6 +208,7 @@ class ServerConfiguration:
         self.tests_timeout = 300
         self.tests_memory_limit = 1024
         self.default_test_env = TestEnv.FIREJAIL
+        self.default_git_branch = 'main'
 
         # users and groups
         self.keeper_user = 'keeper'

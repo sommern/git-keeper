@@ -62,6 +62,23 @@ def git_init_bare(repo_path):
     run_command(cmd)
 
 
+def git_rename_branch(repo_path, new_branch_name, username=None):
+    """
+    Rename the HEAD branch.
+
+    :param repo_path: path to the repo
+    :param new_branch_name: new branch name
+    :param username: if not None, run the command as this user
+    """
+
+    cmd = ['git', '-C', repo_path, 'branch', '-M', new_branch_name]
+
+    if username is not None:
+        run_command(cmd, sudo=True, user=username)
+    else:
+        run_command(cmd)
+
+
 def git_add_all(repo_path):
     """
     Stage all files in a repository's working tree.

@@ -22,11 +22,11 @@ Event type: PUBLISH
 import os
 
 from gkeepcore.csv_files import CSVError
-from gkeepcore.git_commands import git_add_all, git_commit
+from gkeepcore.git_commands import git_add_all, git_commit, git_rename_branch
 from gkeepcore.path_utils import faculty_assignment_dir_path, \
     user_gitkeeper_path
 from gkeepcore.student import StudentError, Student
-from gkeepcore.system_commands import touch, mkdir
+from gkeepcore.system_commands import touch, mkdir, sudo_chown
 from gkeepserver.assignments import AssignmentDirectory, \
     AssignmentDirectoryError, setup_student_assignment, StudentAssignmentError
 from gkeepserver.database import db
@@ -35,6 +35,7 @@ from gkeepserver.gkeepd_logger import gkeepd_logger
 from gkeepserver.handler_utils import log_gkeepd_to_faculty
 from gkeepserver.info_update_thread import info_updater
 from gkeepserver.reports import reports_clone
+from gkeepserver.server_configuration import config
 
 
 class PublishHandler(EventHandler):
@@ -110,6 +111,13 @@ class PublishHandler(EventHandler):
 
             git_add_all(temp_dir_path)
             git_commit(temp_dir_path, 'Initial commit')
+
+        git_rename_branch(assignment_dir.reports_repo_path,
+                          config.default_git_branch,
+                          self._faculty_username)
+        sudo_chown(assignment_dir.reports_repo_path,
+                   assignment_dir.faculty_username,
+                   config.keeper_group, recursive=True)
 
     def _setup_students_assignment_repos(self,
                                          assignment_dir: AssignmentDirectory):
